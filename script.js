@@ -16,11 +16,14 @@ async function enviarMensaje() {
   try {
     // 1. Consultar Google Sheets con manejo de redirección
     // Quitamos headers manuales para que el navegador use el modo simple de CORS
-    const resSheets = await fetch(GOOGLE_SHEET_URL, {
-      method: "GET",
-      mode: "cors",
-      redirect: "follow",
-    });
+    const resSheets = await fetch(
+      "https://script.google.com/macros/s/AKfycbzfaLav5GdU9mCCOVBKwlsD9zcRoddII_P3UbCYYdeTQht2DmJTXHa7JCOko-CcA8OR/exec",
+      {
+        method: "GET",
+        mode: "cors",
+        redirect: "follow",
+      }
+    );
 
     if (!resSheets.ok)
       throw new Error("No se pudo obtener la lista de vecinos");
