@@ -3,65 +3,73 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Portería Virtual</title>
+    <title>Portería Residencial</title>
     <style>
       body {
-        font-family: sans-serif;
-        background: #f0f2f5;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: #f4f4f4;
         display: flex;
         justify-content: center;
-        padding: 20px;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
       }
       #chat-container {
-        width: 100%;
-        max-width: 400px;
+        width: 400px;
+        height: 600px;
         background: white;
         border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
         overflow: hidden;
       }
       #messages {
-        height: 400px;
-        overflow-y: auto;
+        flex: 1;
         padding: 20px;
-        border-bottom: 1px solid #ddd;
+        overflow-y: auto;
         display: flex;
         flex-direction: column;
         gap: 10px;
       }
       .msg {
-        padding: 10px;
-        border-radius: 10px;
         max-width: 80%;
+        padding: 10px 15px;
+        border-radius: 15px;
+        font-size: 14px;
+        line-height: 1.4;
       }
       .user {
+        align-self: flex-end;
         background: #007bff;
         color: white;
-        align-self: flex-end;
+        border-bottom-right-radius: 2px;
       }
       .bot {
-        background: #e9ecef;
-        color: #333;
         align-self: flex-start;
+        background: #e9e9eb;
+        color: #333;
+        border-bottom-left-radius: 2px;
       }
       #input-area {
         display: flex;
-        padding: 10px;
+        padding: 15px;
+        border-top: 1px solid #eee;
       }
       input {
         flex: 1;
-        padding: 10px;
         border: 1px solid #ddd;
-        border-radius: 5px;
+        padding: 10px;
+        border-radius: 20px;
         outline: none;
       }
       button {
-        padding: 10px 20px;
         background: #007bff;
         color: white;
         border: none;
-        border-radius: 5px;
-        margin-left: 5px;
+        padding: 10px 15px;
+        margin-left: 10px;
+        border-radius: 50%;
         cursor: pointer;
       }
     </style>
@@ -73,9 +81,10 @@
         <input
           type="text"
           id="userInput"
-          placeholder="Escriba su nombre o motivo..."
+          placeholder="Escriba su mensaje..."
+          onkeypress="if(event.key === 'Enter') enviarMensaje()"
         />
-        <button onclick="enviarMensaje()">Enviar</button>
+        <button onclick="enviarMensaje()">➤</button>
       </div>
     </div>
 

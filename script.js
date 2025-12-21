@@ -3,7 +3,7 @@ const AGENT_ID = "ag_019b41cc1f6173f6839c1cb21169a5aa";
 const GOOGLE_SHEET_URL =
   "https://script.google.com/macros/s/AKfycbzfaLav5GdU9mCCOVBKwlsD9zcRoddII_P3UbCYYdeTQht2DmJTXHa7JCOko-CcA8OR/exec";
 
-let chatHistory = []; // Para mantener el hilo de la conversación
+let chatHistory = [];
 
 async function enviarMensaje() {
   const input = document.getElementById("userInput");
@@ -14,41 +14,40 @@ async function enviarMensaje() {
   input.value = "";
 
   try {
-    // 1. Consultar Google Sheets con manejo de redirección
-    // Quitamos headers manuales para que el navegador use el modo simple de CORS
-    const resSheets = await fetch(
-      "https://script.google.com/macros/s/AKfycbzfaLav5GdU9mCCOVBKwlsD9zcRoddII_P3UbCYYdeTQht2DmJTXHa7JCOko-CcA8OR/exec",
-      {
-        method: "GET",
-        mode: "cors",
-        redirect: "follow",
-      }
-    );
+    // 1. Obtener datos de Google Sheets
+    const resSheets = await fetch(GOOGLE_SHEET_URL, {
+      method: "GET",
+      mode: "cors",
+      redirect: "follow",
+    });
 
-    if (!resSheets.ok)
-      throw new Error("No se pudo obtener la lista de vecinos");
-
+    if (!resSheets.ok) throw new Error("Error en Sheets");
     const vecinos = await resSheets.json();
 
-    // 2. Buscar coincidencias
+    // 2. Lógica de búsqueda avanzada
+    const textoMin = texto.toLowerCase();
     const encontrados = vecinos.filter(
       (v) =>
-        v.nombre &&
-        v.apellido &&
-        (texto.toLowerCase().includes(v.nombre.toLowerCase()) ||
-          texto.toLowerCase().includes(v.apellido.toLowerCase()))
+        (v.nombre && textoMin.includes(v.nombre.toLowerCase())) ||
+        (v.apellido && textoMin.includes(v.apellido.toLowerCase()))
     );
 
-    // 3. Contexto para Mistral
-    let contextoInterno =
-      "El visitante busca a alguien que NO está en el registro.";
-    if (encontrados.length > 0) {
-      contextoInterno =
-        "DATOS REALES DEL REGISTRO (CONFIDENCIAL): " +
-        JSON.stringify(encontrados);
+    // 3. Determinar el contexto para el Agente basado en PROTOCOLO
+    let contextoInstruccion = "";
+
+    if (encontrados.length === 0) {
+      contextoInstruccion =
+        "PROTOCOLO: El nombre no coincide. Indica que no está en registro de forma breve.";
+    } else if (encontrados.length > 1) {
+      contextoInstruccion = `PROTOCOLO: Se encontraron varios: ${encontrados
+        .map((v) => v.nombre + " " + v.apellido)
+        .join(", ")}. Pide el apellido de forma natural.`;
+    } else {
+      const residente = encontrados[0];
+      contextoInstruccion = `PROTOCOLO: Coincidencia encontrada. Residente: ${residente.nombre} ${residente.apellido}. Estado: ${residente.estado}. Confirma que vas a verificar si se encuentra.`;
     }
 
-    // 4. Llamada a Mistral
+    // 4. Llamada a Mistral (Usando el Agente)
     const resMistral = await fetch(
       "https://api.mistral.ai/v1/agents/completions",
       {
@@ -62,7 +61,7 @@ async function enviarMensaje() {
           messages: [
             {
               role: "system",
-              content: `REGLAS: Eres el portero. No menciones tecnología. Usa estos datos para decidir: ${contextoInterno}`,
+              content: `INFORMACIÓN REAL DE PORTERÍA: ${contextoInstruccion}. Recuerda: Máximo 2 frases, lenguaje humano, nada de tecnología.`,
             },
             ...chatHistory,
             { role: "user", content: texto },
@@ -74,23 +73,28 @@ async function enviarMensaje() {
     const data = await resMistral.json();
     const respuestaBot = data.choices[0].message.content;
 
+    // Guardar en historial y mostrar
     chatHistory.push({ role: "user", content: texto });
     chatHistory.push({ role: "assistant", content: respuestaBot });
+
+    // Limitar historial para no saturar tokens
+    if (chatHistory.length > 10) chatHistory.shift();
+
     agregarMensaje(respuestaBot, "bot");
   } catch (error) {
-    console.error("Error detallado:", error);
+    console.error("Error:", error);
     agregarMensaje(
-      "Disculpe, tengo problemas para consultar el registro.",
+      "Un momento, por favor... tengo un problema con el libro de registro.",
       "bot"
     );
   }
 }
 
 function agregarMensaje(texto, tipo) {
+  const messagesDiv = document.getElementById("messages");
   const div = document.createElement("div");
   div.className = `msg ${tipo}`;
   div.innerText = texto;
-  document.getElementById("messages").appendChild(div);
-  document.getElementById("messages").scrollTop =
-    document.getElementById("messages").scrollHeight;
+  messagesDiv.appendChild(div);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
