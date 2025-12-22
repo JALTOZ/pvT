@@ -1,3 +1,8 @@
+/**
+ * JALTOZ - CONSERJE VIRTUAL
+ * Corrección: Notificación al vecino formateada correctamente.
+ */
+
 const MISTRAL_API_KEY = "rlpAYwxDHmTdXoYyTibBmUMUNi9VL9S6";
 const AGENT_ID = "ag_019b41cc1f6173f6839c1cb21169a5aa";
 const GOOGLE_SHEET_URL =
@@ -7,44 +12,51 @@ let chatHistory = [];
 let vecinosCache = [];
 let visitanteNombre = "";
 let vecinoSeleccionado = null;
-let esperandoNombre = false;
 let visitaConcluida = false;
+let intentosSinNombre = 0;
 
+// Captura de Enter
 document.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     const input = document.getElementById("userInput");
-    if (input && document.activeElement === input) {
-      enviarMensaje();
-    }
+    if (input && document.activeElement === input) enviarMensaje();
   }
 });
 
-async function iniciarServicio() {
-  const statusEl = document.getElementById("connection-status");
+function setInputEstado(bloqueado, mensajePlaceholder = "Escriba aquí...") {
+  const input = document.getElementById("userInput");
   const inputArea = document.getElementById("input-area");
-  const welcomeScreen = document.getElementById("welcome-screen");
-  const chatContainer = document.getElementById("chat-container"); // Asegúrate de que este ID exista en tu HTML
+  if (input) {
+    input.disabled = bloqueado;
+    input.placeholder = mensajePlaceholder;
+    if (!bloqueado) setTimeout(() => input.focus(), 100);
+  }
+  if (inputArea) {
+    bloqueado
+      ? inputArea.classList.add("disabled")
+      : inputArea.classList.remove("disabled");
+  }
+}
 
-  // 1. Intercambio de pantallas
-  if (welcomeScreen) welcomeScreen.classList.add("hidden");
-  if (chatContainer) chatContainer.classList.remove("hidden");
+async function iniciarServicio() {
+  const welcomeScreen = document.getElementById("welcome-screen");
+  if (welcomeScreen) welcomeScreen.style.display = "none";
+  reiniciarDatosInternos();
 
   if (typeof conectarMQTT === "function") {
     conectarMQTT(
       (topic, payload) => {
-        if (topic === "/pvT/portero") {
-          procesarRespuestaVecino(payload);
-        }
+        if (topic === "/pvT/portero") procesarRespuestaVecino(payload);
       },
-      () => {
-        if (statusEl) {
-          statusEl.innerText = "● En línea";
-          statusEl.className = "status online";
-        }
-        inputArea.classList.remove("disabled");
-        document.getElementById("userInput").disabled = false;
+      async () => {
+        document.getElementById("connection-status").innerText = "● En línea";
         mqttClient.subscribe("/pvT/portero");
-        agregarMensaje("Buen día, ¿a quién busca?", "bot");
+
+        const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+        await delay(500);
+        agregarMensaje("Buen día.", "bot");
+        await delay(1200);
+        agregarMensaje("¿A quién busca usted?", "bot");
       }
     );
   }
@@ -53,7 +65,7 @@ async function iniciarServicio() {
     const res = await fetch(GOOGLE_SHEET_URL);
     vecinosCache = await res.json();
   } catch (e) {
-    console.error("Error base de datos");
+    console.error("Error cargando residentes");
   }
 }
 
@@ -65,64 +77,163 @@ async function enviarMensaje() {
   agregarMensaje(texto, "user");
   input.value = "";
 
-  // Lógica de cierre: Si la visita terminó y el usuario se despide
-  if (visitaConcluida) {
-    const t = texto.toLowerCase();
-    if (
-      t.includes("no") ||
-      t.includes("gracias") ||
-      t.includes("chau") ||
-      t.includes("adiós")
-    ) {
-      agregarMensaje("Que tenga un excelente día. Hasta luego.", "bot");
-      // Esperamos 2 segundos para que lea el mensaje antes de volver al inicio
-      setTimeout(reiniciarSesion, 2000);
+  const t = texto.toLowerCase();
+  const esDespedida =
+    t.includes("gracias") ||
+    t.includes("chau") ||
+    t.includes("adiós") ||
+    t.includes("nada");
+
+  if (esDespedida) {
+    agregarMensaje(
+      "Con gusto. Tenga un buen día.",
+      "bot",
+      () => reiniciarSesion(),
+      true
+    );
+    return;
+  }
+
+  // 1. BUSCAR VECINO
+  if (!vecinoSeleccionado) {
+    const encontrado = vecinosCache.find(
+      (v) => v.nombre && t.includes(v.nombre.toLowerCase())
+    );
+    if (encontrado) {
+      vecinoSeleccionado = encontrado;
+      intentosSinNombre = 0;
+      llamarIA(
+        `SISTEMA: El residente es ${vecinoSeleccionado.nombre}. Pregunta al visitante su nombre para consultar si lo puede recibir.`,
+        texto
+      );
+      return;
+    } else {
+      intentosSinNombre++;
+      if (intentosSinNombre === 1) {
+        llamarIA(
+          "SISTEMA: No encontraste el nombre. Pregunta si lo puede repetir.",
+          texto
+        );
+      } else {
+        agregarMensaje(
+          "No tengo a nadie con ese nombre. Por seguridad debo terminar la llamada. Buen día.",
+          "bot",
+          () => reiniciarSesion(),
+          true
+        );
+      }
       return;
     }
   }
 
-  // Captura de nombre
-  if (!visitanteNombre) {
-    if (esperandoNombre) {
-      visitanteNombre = texto;
-      esperandoNombre = false;
-    } else if (
-      texto.toLowerCase().includes("soy") ||
-      texto.toLowerCase().includes("llamo")
-    ) {
-      visitanteNombre = texto.replace(/soy|me llamo|mi nombre es/gi, "").trim();
-    }
-  }
-
-  // Búsqueda de vecino
-  if (!vecinoSeleccionado) {
-    const encontrados = vecinosCache.filter(
-      (v) =>
-        v.nombre &&
-        (texto.toLowerCase().includes(v.nombre.toLowerCase()) ||
-          (v.apellido &&
-            texto.toLowerCase().includes(v.apellido.toLowerCase())))
-    );
-    if (encontrados.length === 1) {
-      vecinoSeleccionado = encontrados[0];
-    }
-  }
-
-  let instruccionIA = "Eres el portero de JALTOZ.";
-
+  // 2. CAPTURAR VISITANTE Y PREGUNTAR AL VECINO
   if (vecinoSeleccionado && !visitanteNombre) {
-    esperandoNombre = true;
-    instruccionIA = `Has ubicado a ${vecinoSeleccionado.nombre}. Pregunta discretamente quién lo busca.`;
-  } else if (vecinoSeleccionado && visitanteNombre && !visitaConcluida) {
+    visitanteNombre = texto;
     notificarVecino(vecinoSeleccionado, visitanteNombre);
-    instruccionIA = `Ya avisaste a ${vecinoSeleccionado.nombre}. Pide al visitante que espere.`;
-  } else if (visitaConcluida) {
-    instruccionIA = `La gestión terminó. Pregunta si necesita algo más.`;
-  } else if (!vecinoSeleccionado && texto.length > 5) {
-    instruccionIA = `Esa persona no vive aquí. No inventes datos.`;
+    llamarIA(
+      `SISTEMA: El visitante es ${visitanteNombre}. Dile que vas a consultar con ${vecinoSeleccionado.nombre} si autoriza su ingreso. Que espere un momento.`,
+      texto
+    );
+    return;
+  }
+}
+
+// NOTIFICACIÓN AL VECINO (Corregida para evitar el 'undefined')
+function notificarVecino(vecino, nombreVisita) {
+  const apto = vecino.apartamento || "S/N";
+  const canal = `/pvT/vecino/${String(apto).trim()}`;
+
+  if (mqttClient?.connected) {
+    // Enviamos un objeto plano convertido a String (JSON)
+    const mensajeParaVecino = {
+      de: "Portería",
+      visitante: nombreVisita,
+      mensaje: `${nombreVisita} está en la entrada. ¿Lo dejamos pasar?`,
+    };
+
+    mqttClient.publish(canal, JSON.stringify(mensajeParaVecino));
+    console.log(`Consulta enviada al canal: ${canal}`);
+  }
+}
+
+function abrirPuertaFisica() {
+  if (mqttClient?.connected) {
+    mqttClient.publish("/pvT/puerta", JSON.stringify({ accion: "ABRIR" }));
+  }
+}
+
+async function procesarRespuestaVecino(payload) {
+  // Si el payload viene como string, lo convertimos a objeto
+  let datos = payload;
+  if (typeof payload === "string") {
+    try {
+      datos = JSON.parse(payload);
+    } catch (e) {
+      datos = { mensaje: payload };
+    }
   }
 
-  llamarIA(instruccionIA, texto);
+  visitaConcluida = true;
+  const msg = (datos.mensaje || "").toLowerCase();
+  let instruccionIA = "";
+
+  if (
+    msg.includes("si") ||
+    msg.includes("pasa") ||
+    msg.includes("abre") ||
+    msg.includes("deja")
+  ) {
+    abrirPuertaFisica();
+    instruccionIA = `SISTEMA: ${vecinoSeleccionado.nombre} autorizó el ingreso. Dile que pase.`;
+  } else {
+    instruccionIA = `SISTEMA: ${vecinoSeleccionado.nombre} no puede recibirlo. Despídete educadamente.`;
+  }
+
+  try {
+    const res = await fetch("https://api.mistral.ai/v1/agents/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${MISTRAL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        agent_id: AGENT_ID,
+        messages: [...chatHistory, { role: "user", content: instruccionIA }],
+      }),
+    });
+    const data = await res.json();
+    agregarMensaje(
+      data.choices[0].message.content,
+      "bot",
+      () => reiniciarSesion(),
+      true
+    );
+  } catch (e) {
+    reiniciarSesion();
+  }
+}
+
+function hablar(texto, callback = null, esCierreFinal = false) {
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(texto);
+  u.rate = 1.1;
+  u.pitch = 0.9;
+  setInputEstado(true, "Escuchando al portero...");
+  u.onend = () => {
+    if (callback) callback();
+    else if (!esCierreFinal) setInputEstado(false, "Escriba aquí...");
+  };
+  window.speechSynthesis.speak(u);
+}
+
+function agregarMensaje(texto, tipo, callback = null, esCierreFinal = false) {
+  if (tipo === "bot") hablar(texto, callback, esCierreFinal);
+  const div = document.createElement("div");
+  div.className = `msg ${tipo}`;
+  div.innerText = texto;
+  document.getElementById("messages").appendChild(div);
+  document.getElementById("messages").scrollTop =
+    document.getElementById("messages").scrollHeight;
 }
 
 async function llamarIA(instruccion, textoUsuario) {
@@ -137,14 +248,13 @@ async function llamarIA(instruccion, textoUsuario) {
         agent_id: AGENT_ID,
         messages: [
           { role: "system", content: instruccion },
-          ...chatHistory,
+          ...chatHistory.slice(-4),
           { role: "user", content: textoUsuario },
         ],
       }),
     });
-
     const data = await res.json();
-    if (data.choices && data.choices[0]) {
+    if (data.choices?.[0]) {
       const respuesta = data.choices[0].message.content;
       agregarMensaje(respuesta, "bot");
       chatHistory.push(
@@ -153,94 +263,32 @@ async function llamarIA(instruccion, textoUsuario) {
       );
     }
   } catch (e) {
-    console.error("Error API:", e);
+    setInputEstado(false);
   }
 }
 
-function notificarVecino(vecino, nombreVisita) {
-  const aptoLimpio = String(vecino.apartamento).trim();
-  const canalDestino = `/pvT/vecino/${aptoLimpio}`;
-  const aviso = {
-    de: "Portería",
-    mensaje: `Hola, ${nombreVisita} está afuera. ¿Lo deja pasar?`,
-  };
-  if (mqttClient && mqttClient.connected) {
-    mqttClient.publish(canalDestino, JSON.stringify(aviso));
-  }
-}
-
-async function procesarRespuestaVecino(payload) {
-  const msg = payload.mensaje.toLowerCase();
-  visitaConcluida = true;
-
-  let instruccionParaIA = "";
-  if (msg.includes("pasa") || msg.includes("abre") || msg.includes("si")) {
-    mqttClient.publish(
-      "/pvT/puerta",
-      JSON.stringify({ accion: "ABRIR", de: payload.de })
-    );
-    instruccionParaIA =
-      "SISTEMA: El residente autorizó. Confirma que la puerta está abierta y pregunta si necesita algo más.";
-  } else {
-    instruccionParaIA =
-      "SISTEMA: El residente no puede recibirlo. Informa amablemente y pregunta si necesita algo más.";
-  }
-
-  try {
-    const res = await fetch("https://api.mistral.ai/v1/agents/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${MISTRAL_API_KEY}`,
-      },
-      body: JSON.stringify({
-        agent_id: AGENT_ID,
-        messages: [
-          ...chatHistory,
-          { role: "user", content: instruccionParaIA },
-        ],
-      }),
-    });
-    const data = await res.json();
-    const respuesta = data.choices[0].message.content;
-    agregarMensaje(respuesta, "bot");
-    chatHistory.push({ role: "assistant", content: respuesta });
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-/**
- * REINICIAR SESIÓN:
- * Limpia los datos y vuelve a la pantalla de "Llamar"
- */
-function reiniciarSesion() {
-  // 1. Limpiar variables de estado
+function reiniciarDatosInternos() {
   visitanteNombre = "";
   vecinoSeleccionado = null;
-  esperandoNombre = false;
   visitaConcluida = false;
+  intentosSinNombre = 0;
   chatHistory = [];
-
-  // 2. Limpiar la interfaz de mensajes
-  const container = document.getElementById("messages");
-  if (container) container.innerHTML = "";
-
-  // 3. Volver a la pantalla de bienvenida
-  const welcomeScreen = document.getElementById("welcome-screen");
-  const chatContainer = document.getElementById("chat-container");
-
-  if (welcomeScreen) welcomeScreen.classList.remove("hidden"); // Muestra el botón Llamar
-  if (chatContainer) chatContainer.classList.add("hidden"); // Oculta el chat
+  document.getElementById("messages").innerHTML = "";
+  window.speechSynthesis.cancel();
 }
 
-function agregarMensaje(texto, tipo) {
-  const div = document.createElement("div");
-  div.className = `msg ${tipo}`;
-  div.innerText = texto;
-  const container = document.getElementById("messages");
-  if (container) {
-    container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
-  }
+function reiniciarSesion() {
+  reiniciarDatosInternos();
+  const welcomeScreen = document.getElementById("welcome-screen");
+  if (welcomeScreen) welcomeScreen.style.display = "flex";
+  setInputEstado(true, "Esperando llamada");
+}
+
+function finalizarLlamada() {
+  agregarMensaje(
+    "Llamada terminada. Que tenga buen día.",
+    "bot",
+    () => reiniciarSesion(),
+    true
+  );
 }
