@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JALTOZ - Acceso Residente</title>
+    <link rel="icon" type="image/svg+xml" href="../../JALTOZ.svg" />
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <link rel="stylesheet" href="style-vecino.css" />
+    <script src="../../mqtt.js" defer></script>
+    <script src="./vecino.js" defer></script>
+  </head>
+  <body>
+    <div id="main-wrapper">
+      <div id="login-screen">
+        <img src="../../JALTOZ.svg" class="logo-main" alt="Jaltoz Logo" />
+        <h2>Acceso Residente</h2>
+        <p>Ingrese su Nombre y Apellido</p>
+        <div class="login-form">
+          <input type="text" id="residentName" placeholder="Ej: Juan Perez" />
+          <button class="btn-call" onclick="verificarResidente()">
+            INGRESAR
+          </button>
+        </div>
+        <p id="login-error" class="error-msg"></p>
+      </div>
+
+      <header>
+        <div class="header-info">
+          <img src="../../JALTOZ.svg" alt="Logo" />
+          <div>
+            <div id="display-name" class="title">Cargando...</div>
+            <div id="connection-status" class="status">Conectando...</div>
+          </div>
+        </div>
+      </header>
+
+      <div id="messages"></div>
+
+      <div id="input-area" class="disabled">
+        <input
+          type="text"
+          id="userInput"
+          placeholder="Responder al portero..."
+          disabled
+        />
+        <button id="btn-send" onclick="enviarAlPortero()">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="white">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+          </svg>
+        </button>
+        <div id="input-area" class="disabled">
+          <button
+            id="btn-open"
+            onclick="abrirPuertaRapido()"
+            style="
+              background: #cc0000;
+              color: white;
+              border-radius: 10px;
+              border: none;
+              padding: 0 15px;
+              font-weight: bold;
+              cursor: pointer;
+            "
+          >
+            ABRIR
+          </button>
+          <input
+            type="text"
+            id="userInput"
+            placeholder="Responder..."
+            disabled
+          />
+          <button id="btn-send" onclick="enviarAlPortero()">...</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

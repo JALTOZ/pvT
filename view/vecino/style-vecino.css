@@ -1,0 +1,140 @@
+:root {
+  --primary: #008800;
+  --bg: #1a1a1a;
+}
+body {
+  font-family: "Segoe UI", sans-serif;
+  background: var(--bg);
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+#main-wrapper {
+  width: 100%;
+  max-width: 400px;
+  height: 85vh;
+  background: white;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+#login-screen {
+  position: absolute;
+  inset: 0;
+  background: white;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 30px;
+  text-align: center;
+}
+.logo-main {
+  width: 80px;
+  margin-bottom: 20px;
+}
+.login-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+#residentName {
+  padding: 15px;
+  border: 2px solid #eee;
+  border-radius: 10px;
+  font-size: 1rem;
+  outline: none;
+}
+.btn-call {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 15px;
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+}
+header {
+  background: var(--primary);
+  color: white;
+  padding: 15px 20px;
+  display: flex;
+  align-items: center;
+}
+.header-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+header img {
+  width: 30px;
+  filter: brightness(0) invert(1);
+}
+.title {
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+.status {
+  font-size: 0.7rem;
+  color: #ffbb00;
+}
+.status.online {
+  color: #00ff00;
+}
+#messages {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #f0f2f5;
+}
+.msg {
+  max-width: 85%;
+  padding: 10px 15px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+}
+.portero {
+  align-self: flex-start;
+  background: white;
+  border-left: 4px solid var(--primary);
+}
+.yo {
+  align-self: flex-end;
+  background: var(--primary);
+  color: white;
+}
+#input-area {
+  padding: 15px;
+  display: flex;
+  gap: 10px;
+  border-top: 1px solid #ddd;
+}
+#input-area.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+input {
+  flex: 1;
+  border: 1px solid #ccc;
+  padding: 10px 15px;
+  border-radius: 10px;
+  outline: none;
+}
+.error-msg {
+  color: #cc0000;
+  font-size: 0.85rem;
+  margin-top: 10px;
+}
+.hidden {
+  display: none !important;
+}

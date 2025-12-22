@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JALTOZ - Portería Inteligente</title>
+    <link rel="icon" type="image/svg+xml" href="../../JALTOZ.svg" />
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <link rel="stylesheet" href="style-portero.css" />
+    <script src="../../mqtt.js" defer></script>
+    <script src="./portero.js" defer></script>
+  </head>
+  <body>
+    <div id="main-wrapper">
+      <div id="welcome-screen">
+        <img src="../../JALTOZ.svg" class="logo-main" alt="Jaltoz Logo" />
+        <h1>Portería.</h1>
+        <p>Condominio Nuevo Amanecer</p>
+        <button class="btn-call" onclick="iniciarServicio()">Llamar</button>
+      </div>
+
+      <header>
+        <div class="header-info">
+          <img src="../../JALTOZ.svg" alt="Logo" />
+          <div>
+            <div class="title">Conserje Virtual</div>
+            <div id="connection-status" class="status">Esperando llamada</div>
+          </div>
+        </div>
+        <button class="btn-finish" onclick="finalizarLlamada()">
+          Finalizar
+        </button>
+      </header>
+
+      <div id="messages"></div>
+
+      <div id="input-area" class="disabled">
+        <input
+          type="text"
+          id="userInput"
+          placeholder="Conectando..."
+          disabled
+        />
+        <button id="btn-send" onclick="enviarMensaje()">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="white">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </body>
+</html>

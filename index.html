@@ -3,94 +3,67 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sistema JALTOZ - Selección</title>
     <link rel="icon" type="image/svg+xml" href="JALTOZ.svg" />
-    <title>Portería Residencial</title>
     <style>
       body {
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        background: #f4f4f4;
+        font-family: sans-serif;
         display: flex;
+        flex-direction: column;
         justify-content: center;
         align-items: center;
         height: 100vh;
         margin: 0;
+        background: #f0f2f5;
       }
-      #chat-container {
-        width: 400px;
-        height: 600px;
+      .container {
+        text-align: center;
         background: white;
-        border-radius: 10px;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-      }
-      #messages {
-        flex: 1;
-        padding: 20px;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-      .msg {
-        max-width: 80%;
-        padding: 10px 15px;
-        border-radius: 15px;
-        font-size: 14px;
-        line-height: 1.4;
-      }
-      .user {
-        align-self: flex-end;
-        background: #007bff;
-        color: white;
-        border-bottom-right-radius: 2px;
-      }
-      .bot {
-        align-self: flex-start;
-        background: #e9e9eb;
-        color: #333;
-        border-bottom-left-radius: 2px;
-      }
-      #input-area {
-        display: flex;
-        padding: 15px;
-        border-top: 1px solid #eee;
-      }
-      input {
-        flex: 1;
-        border: 1px solid #ddd;
-        padding: 10px;
-        border-radius: 20px;
-        outline: none;
+        padding: 40px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
       }
       button {
+        width: 200px;
+        padding: 15px;
+        margin: 10px;
+        font-size: 16px;
+        cursor: pointer;
+        border: none;
+        border-radius: 8px;
+        transition: transform 0.2s;
+      }
+      .btn-portero {
+        background: #333;
+        color: white;
+      }
+      .btn-vecino {
         background: #007bff;
         color: white;
-        border: none;
-        padding: 10px 15px;
-        margin-left: 10px;
-        border-radius: 50%;
-        cursor: pointer;
-
-        aspect-ratio: 1 / 1;
+      }
+      button:hover {
+        transform: scale(1.05);
       }
     </style>
   </head>
   <body>
-    <div id="chat-container">
-      <div id="messages"></div>
-      <div id="input-area">
-        <input
-          type="text"
-          id="userInput"
-          placeholder="Escriba su mensaje..."
-          onkeypress="if(event.key === 'Enter') enviarMensaje()"
-        />
-        <button onclick="enviarMensaje()">➤</button>
-      </div>
+    <div class="container">
+      <img src="JALTOZ.svg" alt="Logo" width="80" />
+      <h1>Bienvenido al Sistema</h1>
+      <p>Seleccione su perfil de acceso:</p>
+      <button
+        class="btn-portero"
+        onclick="window.location.href='./view/portero/portero.html'"
+      >
+        SOY PORTERO
+      </button>
+      <br />
+      <button
+        class="btn-vecino"
+        onclick="window.location.href='./view/vecino/vecino.html'"
+      >
+        SOY VECINO
+      </button>
     </div>
-
-    <script src="script.js"></script>
   </body>
 </html>
