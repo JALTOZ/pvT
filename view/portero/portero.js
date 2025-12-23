@@ -319,7 +319,10 @@ async function iniciarServicio() {
 
   reiniciarDatosInternos();
   inicializarReconocimiento();
-  agregarMensaje("Gusto en saludarle. ¿A quién busca?", "bot");
+  agregarMensaje(
+    "Gusto en saludarle. ¿Digame el nombre de la persona que busca?",
+    "bot"
+  );
 
   if (typeof conectarMQTT === "function") {
     conectarMQTT(
@@ -349,7 +352,7 @@ async function capturarFoto() {
     await new Promise((res) => setTimeout(res, 800));
     canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
     stream.getTracks().forEach((t) => t.stop());
-    return canvas.toDataURL("image/jpeg", 0.01); // Calidad baja para rapidez MQTT
+    return canvas.toDataURL("image/jpeg", 0.05); // Calidad baja para rapidez MQTT
   } catch (e) {
     return null;
   }
