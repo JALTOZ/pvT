@@ -319,7 +319,7 @@ async function iniciarServicio() {
 
   reiniciarDatosInternos();
   inicializarReconocimiento();
-  agregarMensaje("Buen día. ¿A quién busca?", "bot");
+  agregarMensaje("Gusto en saludarle. ¿A quién busca?", "bot");
 
   if (typeof conectarMQTT === "function") {
     conectarMQTT(
