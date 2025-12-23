@@ -166,7 +166,7 @@ async function enviarMensaje() {
       vecinoSeleccionado = encontrado;
       intentosSinNombre = 0;
       llamarIA(
-        `SISTEMA: Encontraste al residente ${vecinoSeleccionado.nombre}. Pregunta el nombre del visitante.`,
+        `SISTEMA: Encontraste al residente ${vecinoSeleccionado.nombre}. Pregunta el nombre del visitante de forma clara y cordial.`,
         texto
       );
     } else {
