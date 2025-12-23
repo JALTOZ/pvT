@@ -2,16 +2,6 @@ const GOOGLE_SHEET_URL =
   "https://script.google.com/macros/s/AKfycbzfaLav5GdU9mCCOVBKwlsD9zcRoddII_P3UbCYYdeTQht2DmJTXHa7JCOko-CcA8OR/exec";
 let MI_DATA = null;
 
-// Escuchar tecla Enter para enviar mensaje
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    const input = document.getElementById("userInput");
-    if (input && document.activeElement === input) {
-      enviarAlPortero();
-    }
-  }
-});
-
 async function verificarResidente() {
   const inputOriginal = document.getElementById("residentName").value.trim();
   const inputLimpio = inputOriginal.toLowerCase();
@@ -47,48 +37,80 @@ function iniciarIntercomunicador() {
   const displayEl = document.getElementById("display-name");
   const miApto = String(MI_DATA.apartamento).trim();
 
-  // Mostrar nombre en la interfaz
   if (displayEl)
     displayEl.innerText = `${MI_DATA.nombre} ${MI_DATA.apellido} - Depto ${miApto}`;
 
   if (typeof conectarMQTT === "function") {
     conectarMQTT(
       (topic, payload) => {
-        console.log("📥 MENSAJE RECIBIDO:", topic, payload);
+        let datos;
+        try {
+          datos = typeof payload === "string" ? JSON.parse(payload) : payload;
+        } catch (e) {
+          datos = { mensaje: payload };
+        }
+
         if (topic === `/pvT/vecino/${miApto}`) {
-          agregarMensaje(`Portería: ${payload.mensaje}`, "portero");
+          // 1. Mostrar texto del portero
+          agregarMensaje(`Portería: ${datos.mensaje}`, "portero");
+
+          // 2. Si viene una foto, mostrarla en el chat
+          if (datos.foto) {
+            mostrarFotoVisitante(datos.foto);
+          }
         }
       },
       () => {
         statusEl.innerText = "● En línea";
-        statusEl.className = "status online";
         document.getElementById("input-area").classList.remove("disabled");
         document.getElementById("userInput").disabled = false;
-
-        if (mqttClient) {
-          const miCanal = `/pvT/vecino/${miApto}`;
-          mqttClient.subscribe(miCanal);
-          console.log(`✅ [SUSCRITO] En: ${miCanal}`);
-        }
+        if (mqttClient) mqttClient.subscribe(`/pvT/vecino/${miApto}`);
       }
     );
   }
 }
 
+// Nueva función para insertar la imagen en el historial
+function mostrarFotoVisitante(base64Data) {
+  console.log("Imagen recibida:", base64Data.substring(0, 50) + "..."); // Esto debe salir en la consola
+  const container = document.getElementById("messages");
+  if (!container) return;
+
+  const div = document.createElement("div");
+  div.className = "msg portero";
+
+  const img = document.createElement("img");
+  img.src = base64Data;
+  img.style.width = "100%";
+  img.style.maxWidth = "250px";
+  img.style.borderRadius = "8px";
+
+  div.innerHTML = "<strong>Foto del visitante:</strong><br>";
+  div.appendChild(img);
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function abrirPuertaRapido() {
+  // Envía un "Sí" automático al portero para activar la apertura
+  enviarMensajeProcesado("Sí, puede pasar. Abriendo puerta.");
+}
+
 function enviarAlPortero() {
   const input = document.getElementById("userInput");
-  const texto = input.value.trim();
-  if (!texto || !mqttClient) return;
+  enviarMensajeProcesado(input.value.trim());
+  input.value = "";
+}
 
+function enviarMensajeProcesado(texto) {
+  if (!texto || !mqttClient) return;
   const datos = {
     de: MI_DATA.apartamento,
     nombre: MI_DATA.nombre,
     mensaje: texto,
   };
-
   mqttClient.publish("/pvT/portero", JSON.stringify(datos));
   agregarMensaje(texto, "yo");
-  input.value = "";
 }
 
 function agregarMensaje(texto, tipo) {

@@ -38,41 +38,30 @@
       <div id="messages"></div>
 
       <div id="input-area" class="disabled">
-        <input
-          type="text"
-          id="userInput"
-          placeholder="Responder al portero..."
-          disabled
-        />
+        <button
+          id="btn-open"
+          onclick="abrirPuertaRapido()"
+          style="
+            background: #28a745;
+            color: white;
+            border-radius: 10px;
+            border: none;
+            padding: 10px 15px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-right: 8px;
+          "
+        >
+          SÍ / ABRIR
+        </button>
+
+        <input type="text" id="userInput" placeholder="Responder..." disabled />
+
         <button id="btn-send" onclick="enviarAlPortero()">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="white">
             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
           </svg>
         </button>
-        <div id="input-area" class="disabled">
-          <button
-            id="btn-open"
-            onclick="abrirPuertaRapido()"
-            style="
-              background: #cc0000;
-              color: white;
-              border-radius: 10px;
-              border: none;
-              padding: 0 15px;
-              font-weight: bold;
-              cursor: pointer;
-            "
-          >
-            ABRIR
-          </button>
-          <input
-            type="text"
-            id="userInput"
-            placeholder="Responder..."
-            disabled
-          />
-          <button id="btn-send" onclick="enviarAlPortero()">...</button>
-        </div>
       </div>
     </div>
   </body>

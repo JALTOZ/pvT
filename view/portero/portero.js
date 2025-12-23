@@ -1,6 +1,6 @@
 /**
  * JALTOZ - CONSERJE VIRTUAL
- * Corrección: Notificación al vecino formateada correctamente.
+ * Versión Final: Control de acceso, voz, bloqueo de input y captura de foto.
  */
 
 const MISTRAL_API_KEY = "rlpAYwxDHmTdXoYyTibBmUMUNi9VL9S6";
@@ -51,7 +51,6 @@ async function iniciarServicio() {
       async () => {
         document.getElementById("connection-status").innerText = "● En línea";
         mqttClient.subscribe("/pvT/portero");
-
         const delay = (ms) => new Promise((res) => setTimeout(res, ms));
         await delay(500);
         agregarMensaje("Buen día.", "bot");
@@ -69,6 +68,9 @@ async function iniciarServicio() {
   }
 }
 
+/**
+ * Función principal modificada para incluir la captura de foto
+ */
 async function enviarMensaje() {
   const input = document.getElementById("userInput");
   const texto = input.value.trim();
@@ -126,33 +128,38 @@ async function enviarMensaje() {
     }
   }
 
-  // 2. CAPTURAR VISITANTE Y PREGUNTAR AL VECINO
+  // 2. CAPTURAR VISITANTE, TOMAR FOTO Y NOTIFICAR
   if (vecinoSeleccionado && !visitanteNombre) {
     visitanteNombre = texto;
-    notificarVecino(vecinoSeleccionado, visitanteNombre);
+
+    // Tomamos la foto antes de enviar la notificación
+    const fotoBase64 = await capturarFoto();
+
+    notificarVecino(vecinoSeleccionado, visitanteNombre, fotoBase64);
+
     llamarIA(
-      `SISTEMA: El visitante es ${visitanteNombre}. Dile que vas a consultar con ${vecinoSeleccionado.nombre} si autoriza su ingreso. Que espere un momento.`,
+      `SISTEMA: El visitante es ${visitanteNombre}. Dile que vas a consultar con ${vecinoSeleccionado.nombre} y que ya le enviaste su foto para que lo reconozca.`,
       texto
     );
     return;
   }
 }
 
-// NOTIFICACIÓN AL VECINO (Corregida para evitar el 'undefined')
-function notificarVecino(vecino, nombreVisita) {
+// NOTIFICACIÓN AL VECINO (Ahora acepta foto opcional)
+function notificarVecino(vecino, nombreVisita, foto = null) {
   const apto = vecino.apartamento || "S/N";
   const canal = `/pvT/vecino/${String(apto).trim()}`;
 
   if (mqttClient?.connected) {
-    // Enviamos un objeto plano convertido a String (JSON)
     const mensajeParaVecino = {
       de: "Portería",
       visitante: nombreVisita,
       mensaje: `${nombreVisita} está en la entrada. ¿Lo dejamos pasar?`,
+      foto: foto, // Se envía la imagen en base64 o null
     };
 
     mqttClient.publish(canal, JSON.stringify(mensajeParaVecino));
-    console.log(`Consulta enviada al canal: ${canal}`);
+    console.log(`Consulta enviada con foto al canal: ${canal}`);
   }
 }
 
@@ -163,7 +170,6 @@ function abrirPuertaFisica() {
 }
 
 async function procesarRespuestaVecino(payload) {
-  // Si el payload viene como string, lo convertimos a objeto
   let datos = payload;
   if (typeof payload === "string") {
     try {
@@ -213,6 +219,7 @@ async function procesarRespuestaVecino(payload) {
   }
 }
 
+// Lógica de Voz y Mensajes
 function hablar(texto, callback = null, esCierreFinal = false) {
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(texto);
@@ -284,11 +291,24 @@ function reiniciarSesion() {
   setInputEstado(true, "Esperando llamada");
 }
 
-function finalizarLlamada() {
-  agregarMensaje(
-    "Llamada terminada. Que tenga buen día.",
-    "bot",
-    () => reiniciarSesion(),
-    true
-  );
+/**
+ * Captura una foto desde la webcam
+ */
+async function capturarFoto() {
+  const video = document.getElementById("video");
+  const canvas = document.getElementById("canvas");
+  if (!video || !canvas) return null;
+  const context = canvas.getContext("2d");
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+    await new Promise((res) => setTimeout(res, 1000)); // Tiempo para enfoque
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    stream.getTracks().forEach((track) => track.stop());
+    return canvas.toDataURL("image/jpeg", 0.3);
+  } catch (err) {
+    console.error("Error cámara:", err);
+    return null;
+  }
 }
