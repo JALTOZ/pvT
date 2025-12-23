@@ -306,7 +306,7 @@ async function capturarFoto() {
     await new Promise((res) => setTimeout(res, 1000)); // Tiempo para enfoque
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     stream.getTracks().forEach((track) => track.stop());
-    return canvas.toDataURL("image/jpeg", 0.3);
+    return canvas.toDataURL("image/jpeg", 0.1);
   } catch (err) {
     console.error("Error cámara:", err);
     return null;
