@@ -5,9 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>JALTOZ - Portería Inteligente</title>
     <link rel="icon" type="image/svg+xml" href="../../JALTOZ.svg" />
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <link rel="stylesheet" href="style-portero.css" />
+
     <script src="../../mqtt.js" defer></script>
+    <!-- <script src="./datos.js" defer></script> -->
     <script src="./portero.js" defer></script>
   </head>
   <body>
@@ -21,9 +28,13 @@
 
       <header>
         <div class="header-info">
-          <img src="../../JALTOZ.svg" alt="Logo" />
+          <img
+            src="../../JALTOZ.svg"
+            alt="Logo"
+            style="filter: brightness(100)"
+          />
           <div>
-            <div class="title">Conserje Virtual</div>
+            <div class="title">Conserje</div>
             <div id="connection-status" class="status">Esperando llamada</div>
           </div>
         </div>
@@ -35,12 +46,18 @@
       <div id="messages"></div>
 
       <div id="input-area" class="disabled">
+        <div id="mic-container">
+          <div class="pulse-ring"></div>
+          <i class="fas fa-microphone" id="mic-icon"></i>
+        </div>
+
         <input
           type="text"
           id="userInput"
           placeholder="Conectando..."
           disabled
         />
+
         <button id="btn-send" onclick="enviarMensaje()">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="white">
             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
@@ -49,7 +66,6 @@
       </div>
     </div>
 
-    <!-- ------- PARA CACTURAR FOTO ---------- -->
     <video
       id="video"
       width="640"

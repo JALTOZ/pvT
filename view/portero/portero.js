@@ -1,76 +1,124 @@
 /**
- * JALTOZ - CONSERJE VIRTUAL
- * Versión Final: Control de acceso, voz, bloqueo de input y captura de foto.
+ * JALTOZ - CONSERJE VIRTUAL (VERSIÓN MAESTRA FINAL)
+ * Incluye:
+ * 1. Filtro Anti-Vendedores (Prioridad Alta)
+ * 2. Validación Inteligente de Nombres (Distingue nombres de dudas)
+ * 3. Control de Puerta MQTT
+ * 4. Micrófono Persistente
+ * 5. Cierre Automático de Sesión
  */
 
+// 1. CONFIGURACIÓN
 const MISTRAL_API_KEY = "rlpAYwxDHmTdXoYyTibBmUMUNi9VL9S6";
 const AGENT_ID = "ag_019b41cc1f6173f6839c1cb21169a5aa";
 const GOOGLE_SHEET_URL =
   "https://script.google.com/macros/s/AKfycbzfaLav5GdU9mCCOVBKwlsD9zcRoddII_P3UbCYYdeTQht2DmJTXHa7JCOko-CcA8OR/exec";
 
+// 2. ESTADO GLOBAL
 let chatHistory = [];
 let vecinosCache = [];
 let visitanteNombre = "";
 let vecinoSeleccionado = null;
 let visitaConcluida = false;
 let intentosSinNombre = 0;
+let intentosNoDeseados = 0;
+let reconocimiento;
 
-// Captura de Enter
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    const input = document.getElementById("userInput");
-    if (input && document.activeElement === input) enviarMensaje();
-  }
-});
-
+// 3. FUNCIONES DE UI (Declaradas al inicio para evitar errores)
 function setInputEstado(bloqueado, mensajePlaceholder = "Escriba aquí...") {
   const input = document.getElementById("userInput");
-  const inputArea = document.getElementById("input-area");
+  const area = document.getElementById("input-area");
   if (input) {
     input.disabled = bloqueado;
     input.placeholder = mensajePlaceholder;
     if (!bloqueado) setTimeout(() => input.focus(), 100);
   }
-  if (inputArea) {
+  if (area) {
     bloqueado
-      ? inputArea.classList.add("disabled")
-      : inputArea.classList.remove("disabled");
+      ? area.classList.add("disabled")
+      : area.classList.remove("disabled");
   }
 }
 
-async function iniciarServicio() {
-  const welcomeScreen = document.getElementById("welcome-screen");
-  if (welcomeScreen) welcomeScreen.style.display = "none";
-  reiniciarDatosInternos();
+function hablar(texto, callback = null, esCierreFinal = false) {
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(texto);
+  u.rate = 1.1; // Velocidad un poco más rápida para naturalidad
 
-  if (typeof conectarMQTT === "function") {
-    conectarMQTT(
-      (topic, payload) => {
-        if (topic === "/pvT/portero") procesarRespuestaVecino(payload);
-      },
-      async () => {
-        document.getElementById("connection-status").innerText = "● En línea";
-        mqttClient.subscribe("/pvT/portero");
-        const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-        await delay(500);
-        agregarMensaje("Buen día.", "bot");
-        await delay(1200);
-        agregarMensaje("¿A quién busca usted?", "bot");
-      }
-    );
-  }
+  setInputEstado(true, "Portero hablando...");
 
-  try {
-    const res = await fetch(GOOGLE_SHEET_URL);
-    vecinosCache = await res.json();
-  } catch (e) {
-    console.error("Error cargando residentes");
+  // Detenemos micro para que no se escuche a sí mismo
+  if (reconocimiento)
+    try {
+      reconocimiento.stop();
+    } catch (e) {}
+
+  u.onend = () => {
+    // Si la visita concluyó (puerta abierta o rechazo), reiniciamos
+    if (esCierreFinal || visitaConcluida) {
+      setTimeout(() => reiniciarSesion(), 1500);
+    } else if (callback) {
+      callback();
+    } else {
+      setInputEstado(false, "Escriba aquí...");
+      iniciarEscucha(); // Reactivamos micro automáticamente
+    }
+  };
+  window.speechSynthesis.speak(u);
+}
+
+function agregarMensaje(texto, tipo, callback = null, esCierreFinal = false) {
+  if (tipo === "bot") hablar(texto, callback, esCierreFinal);
+
+  const div = document.createElement("div");
+  div.className = `msg ${tipo}`;
+  div.innerText = texto;
+  const container = document.getElementById("messages");
+  if (container) {
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
   }
 }
 
-/**
- * Función principal modificada para incluir la captura de foto
- */
+// 4. LÓGICA DE MICRÓFONO
+function inicializarReconocimiento() {
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return;
+
+  reconocimiento = new SpeechRecognition();
+  reconocimiento.lang = "es-ES";
+  reconocimiento.continuous = false; // Importante: falso para procesar frase a frase
+
+  reconocimiento.onstart = () => {
+    const mic = document.getElementById("mic-container");
+    if (mic) mic.classList.add("active");
+  };
+
+  reconocimiento.onend = () => {
+    const mic = document.getElementById("mic-container");
+    if (mic) mic.classList.remove("active");
+  };
+
+  reconocimiento.onresult = (event) => {
+    const texto = event.results[0][0].transcript;
+    const input = document.getElementById("userInput");
+    if (input && !input.disabled) {
+      input.value = texto;
+      enviarMensaje();
+    }
+  };
+}
+
+function iniciarEscucha() {
+  if (reconocimiento && !visitaConcluida) {
+    try {
+      reconocimiento.start();
+    } catch (e) {}
+  }
+}
+
+// 5. CEREBRO CENTRAL (Lógica de Negocio)
 async function enviarMensaje() {
   const input = document.getElementById("userInput");
   const texto = input.value.trim();
@@ -78,172 +126,110 @@ async function enviarMensaje() {
 
   agregarMensaje(texto, "user");
   input.value = "";
-
   const t = texto.toLowerCase();
-  const esDespedida =
-    t.includes("gracias") ||
-    t.includes("chau") ||
-    t.includes("adiós") ||
-    t.includes("nada");
 
-  if (esDespedida) {
-    agregarMensaje(
-      "Con gusto. Tenga un buen día.",
-      "bot",
-      () => reiniciarSesion(),
-      true
-    );
-    return;
+  // --- FILTRO 1: SEGURIDAD Y VENTAS (Prioridad Máxima) ---
+  const validacionSeguridad = await llamarIA(
+    `SISTEMA: Analiza la intención: "${texto}". 
+        ¿Es un vendedor, encuestador o alguien ofreciendo servicios no solicitados? 
+        Responde 'RECHAZAR' si es venta/spam. Responde 'PROCESAR' si es una visita normal.`,
+    texto,
+    true // Validación silenciosa
+  );
+
+  if (validacionSeguridad.includes("RECHAZAR")) {
+    intentosNoDeseados++;
+    if (intentosNoDeseados >= 2) {
+      visitaConcluida = true;
+      agregarMensaje(
+        "Como le indiqué, no se permiten ventas. Debo cerrar la comunicación. Buen día.",
+        "bot",
+        null,
+        true
+      );
+    } else {
+      await llamarIA(
+        "SISTEMA: Detectaste un vendedor o persona no autorizada. Dile cortésmente que está prohibido el ingreso para ventas, si desea contantar con algun recidente digame a quien busca",
+        texto
+      );
+    }
+    return; // Cortamos flujo aquí
   }
 
-  // 1. BUSCAR VECINO
+  // --- FILTRO 2: IDENTIFICAR RESIDENTE ---
   if (!vecinoSeleccionado) {
     const encontrado = vecinosCache.find(
       (v) => v.nombre && t.includes(v.nombre.toLowerCase())
     );
+
     if (encontrado) {
       vecinoSeleccionado = encontrado;
       intentosSinNombre = 0;
       llamarIA(
-        `SISTEMA: El residente es ${vecinoSeleccionado.nombre}. Pregunta al visitante su nombre para consultar si lo puede recibir.`,
+        `SISTEMA: Encontraste al residente ${vecinoSeleccionado.nombre}. Pregunta el nombre del visitante.`,
         texto
       );
-      return;
     } else {
       intentosSinNombre++;
-      if (intentosSinNombre === 1) {
+      if (intentosSinNombre >= 2) {
+        visitaConcluida = true;
+        // agregarMensaje(
+        //   "No logro entender su solicitud. Por seguridad finalizo la llamada.",
+        //   "bot",
+        //   null,
+        //   true
+        // );
         llamarIA(
-          "SISTEMA: No encontraste el nombre. Pregunta si lo puede repetir.",
+          `SISTEMA: Si no existe el vecino.Despedirte cordial mente`,
           texto
         );
       } else {
-        agregarMensaje(
-          "No tengo a nadie con ese nombre. Por seguridad debo terminar la llamada. Buen día.",
-          "bot",
-          () => reiniciarSesion(),
-          true
+        llamarIA(
+          "SISTEMA: No entendiste el nombre del residente. Pide que lo repita.",
+          texto
         );
       }
-      return;
     }
-  }
-
-  // 2. CAPTURAR VISITANTE, TOMAR FOTO Y NOTIFICAR
-  if (vecinoSeleccionado && !visitanteNombre) {
-    visitanteNombre = texto;
-
-    // Tomamos la foto antes de enviar la notificación
-    const fotoBase64 = await capturarFoto();
-
-    notificarVecino(vecinoSeleccionado, visitanteNombre, fotoBase64);
-
-    llamarIA(
-      `SISTEMA: El visitante es ${visitanteNombre}. Dile que vas a consultar con ${vecinoSeleccionado.nombre} y que ya le enviaste su foto para que lo reconozca.`,
-      texto
-    );
     return;
   }
-}
 
-// NOTIFICACIÓN AL VECINO (Ahora acepta foto opcional)
-function notificarVecino(vecino, nombreVisita, foto = null) {
-  const apto = vecino.apartamento || "S/N";
-  const canal = `/pvT/vecino/${String(apto).trim()}`;
-
-  if (mqttClient?.connected) {
-    const mensajeParaVecino = {
-      de: "Portería",
-      visitante: nombreVisita,
-      mensaje: `${nombreVisita} está en la entrada. ¿Lo dejamos pasar?`,
-      foto: foto, // Se envía la imagen en base64 o null
-    };
-
-    mqttClient.publish(canal, JSON.stringify(mensajeParaVecino));
-    console.log(`Consulta enviada con foto al canal: ${canal}`);
-  }
-}
-
-function abrirPuertaFisica() {
-  if (mqttClient?.connected) {
-    mqttClient.publish("/pvT/puerta", JSON.stringify({ accion: "ABRIR" }));
-  }
-}
-
-async function procesarRespuestaVecino(payload) {
-  let datos = payload;
-  if (typeof payload === "string") {
-    try {
-      datos = JSON.parse(payload);
-    } catch (e) {
-      datos = { mensaje: payload };
-    }
-  }
-
-  visitaConcluida = true;
-  const msg = (datos.mensaje || "").toLowerCase();
-  let instruccionIA = "";
-
-  if (
-    msg.includes("si") ||
-    msg.includes("pasa") ||
-    msg.includes("abre") ||
-    msg.includes("deja")
-  ) {
-    abrirPuertaFisica();
-    instruccionIA = `SISTEMA: ${vecinoSeleccionado.nombre} autorizó el ingreso. Dile que pase.`;
-  } else {
-    instruccionIA = `SISTEMA: ${vecinoSeleccionado.nombre} no puede recibirlo. Despídete educadamente.`;
-  }
-
-  try {
-    const res = await fetch("https://api.mistral.ai/v1/agents/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${MISTRAL_API_KEY}`,
-      },
-      body: JSON.stringify({
-        agent_id: AGENT_ID,
-        messages: [...chatHistory, { role: "user", content: instruccionIA }],
-      }),
-    });
-    const data = await res.json();
-    agregarMensaje(
-      data.choices[0].message.content,
-      "bot",
-      () => reiniciarSesion(),
+  // --- FILTRO 3: CAPTURAR NOMBRE VISITANTE (Con Validación de Confusión) ---
+  if (vecinoSeleccionado && !visitanteNombre) {
+    // Preguntamos a la IA si el texto es un nombre válido o una duda ("que?", "no escuche")
+    const validacionNombre = await llamarIA(
+      `SISTEMA: El usuario dijo "${texto}". ¿Es un nombre propio de persona o es una expresión de duda/pregunta?
+            Responde 'SI' si es un nombre. Responde 'NO' si es duda o no se entiende.`,
+      texto,
       true
     );
-  } catch (e) {
-    reiniciarSesion();
+
+    if (validacionNombre.includes("NO")) {
+      await llamarIA(
+        `SISTEMA: El usuario no dio un nombre claro. Pídele su nombre de nuevo para anunciarlo con ${vecinoSeleccionado.nombre}.`,
+        texto
+      );
+      return;
+    }
+
+    // Si es un nombre válido:
+    visitanteNombre = texto;
+    const foto = await capturarFoto();
+    notificarVecino(vecinoSeleccionado, visitanteNombre, foto);
+
+    // Mensaje final estático para evitar alucinaciones
+    agregarMensaje(
+      `Entendido. Ya envié su foto y nombre a ${vecinoSeleccionado.nombre}. Espere un momento.`,
+      "bot"
+    );
   }
 }
 
-// Lógica de Voz y Mensajes
-function hablar(texto, callback = null, esCierreFinal = false) {
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(texto);
-  u.rate = 1.1;
-  u.pitch = 0.9;
-  setInputEstado(true, "Escuchando al portero...");
-  u.onend = () => {
-    if (callback) callback();
-    else if (!esCierreFinal) setInputEstado(false, "Escriba aquí...");
-  };
-  window.speechSynthesis.speak(u);
-}
-
-function agregarMensaje(texto, tipo, callback = null, esCierreFinal = false) {
-  if (tipo === "bot") hablar(texto, callback, esCierreFinal);
-  const div = document.createElement("div");
-  div.className = `msg ${tipo}`;
-  div.innerText = texto;
-  document.getElementById("messages").appendChild(div);
-  document.getElementById("messages").scrollTop =
-    document.getElementById("messages").scrollHeight;
-}
-
-async function llamarIA(instruccion, textoUsuario) {
+// 6. SERVICIOS EXTERNOS (IA, MQTT, Cámara)
+async function llamarIA(
+  instruccion,
+  textoUsuario,
+  esValidacionSilenciosa = false
+) {
   try {
     const res = await fetch("https://api.mistral.ai/v1/agents/completions", {
       method: "POST",
@@ -254,23 +240,118 @@ async function llamarIA(instruccion, textoUsuario) {
       body: JSON.stringify({
         agent_id: AGENT_ID,
         messages: [
-          { role: "system", content: instruccion },
-          ...chatHistory.slice(-4),
+          { role: "system", content: instruccion + " Sé breve." },
+          ...chatHistory.slice(-2), // Memoria corta para no confundir contextos
           { role: "user", content: textoUsuario },
         ],
       }),
     });
     const data = await res.json();
-    if (data.choices?.[0]) {
-      const respuesta = data.choices[0].message.content;
+    const respuesta = data.choices[0].message.content;
+
+    if (!esValidacionSilenciosa) {
       agregarMensaje(respuesta, "bot");
       chatHistory.push(
         { role: "user", content: textoUsuario },
         { role: "assistant", content: respuesta }
       );
     }
+    return respuesta;
   } catch (e) {
-    setInputEstado(false);
+    return "ERROR";
+  }
+}
+
+function notificarVecino(vecino, nombreVisita, foto) {
+  const canal = `/pvT/vecino/${String(vecino.apartamento).trim()}`;
+  if (mqttClient?.connected) {
+    mqttClient.publish(
+      canal,
+      JSON.stringify({
+        de: "Portería",
+        visitante: nombreVisita,
+        mensaje: `${nombreVisita} busca a ${vecino.nombre}.`,
+        foto: foto,
+      })
+    );
+  }
+}
+
+async function procesarRespuestaVecino(payload) {
+  let datos = typeof payload === "string" ? JSON.parse(payload) : payload;
+  const msg = (datos.mensaje || "").toLowerCase();
+
+  visitaConcluida = true; // Activa el reinicio automático
+
+  if (msg.includes("si") || msg.includes("pasa") || msg.includes("abre")) {
+    // 1. Abrir puerta
+    if (mqttClient?.connected) {
+      mqttClient.publish(
+        "/pvT/puerta",
+        JSON.stringify({
+          accion: "ABRIR",
+          apto: vecinoSeleccionado?.apartamento,
+        })
+      );
+    }
+    // 2. Despedida positiva
+    agregarMensaje(
+      "Acceso autorizado. La puerta está abierta. Bienvenido.",
+      "bot",
+      null,
+      true
+    );
+  } else {
+    // 2. Despedida negativa
+    agregarMensaje(
+      "El residente informa que no puede recibirlo ahora. Buen día.",
+      "bot",
+      null,
+      true
+    );
+  }
+}
+
+// 7. ARRANQUE Y UTILIDADES
+async function iniciarServicio() {
+  const welcome = document.getElementById("welcome-screen");
+  if (welcome) welcome.style.display = "none";
+
+  reiniciarDatosInternos();
+  inicializarReconocimiento();
+  agregarMensaje("Buen día. ¿A quién busca?", "bot");
+
+  if (typeof conectarMQTT === "function") {
+    conectarMQTT(
+      (topic, payload) => {
+        if (topic === "/pvT/portero") procesarRespuestaVecino(payload);
+      },
+      () => {
+        document.getElementById("connection-status").innerText = "● En línea";
+        mqttClient.subscribe("/pvT/portero");
+      }
+    );
+  }
+
+  try {
+    const res = await fetch(GOOGLE_SHEET_URL);
+    vecinosCache = await res.json();
+  } catch (e) {}
+}
+
+async function capturarFoto() {
+  const video = document.getElementById("video");
+  const canvas = document.getElementById("canvas");
+  if (!video || !canvas) return null;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+    await new Promise((res) => setTimeout(res, 800));
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    stream.getTracks().forEach((t) => t.stop());
+    return canvas.toDataURL("image/jpeg", 0.1); // Calidad baja para rapidez MQTT
+  } catch (e) {
+    return null;
   }
 }
 
@@ -279,36 +360,24 @@ function reiniciarDatosInternos() {
   vecinoSeleccionado = null;
   visitaConcluida = false;
   intentosSinNombre = 0;
+  intentosNoDeseados = 0;
   chatHistory = [];
-  document.getElementById("messages").innerHTML = "";
+  const container = document.getElementById("messages");
+  if (container) container.innerHTML = "";
   window.speechSynthesis.cancel();
 }
 
 function reiniciarSesion() {
   reiniciarDatosInternos();
-  const welcomeScreen = document.getElementById("welcome-screen");
-  if (welcomeScreen) welcomeScreen.style.display = "flex";
-  setInputEstado(true, "Esperando llamada");
+  const welcome = document.getElementById("welcome-screen");
+  if (welcome) welcome.style.display = "flex";
+  setInputEstado(true, "Esperando...");
+  if (reconocimiento)
+    try {
+      reconocimiento.stop();
+    } catch (e) {}
 }
 
-/**
- * Captura una foto desde la webcam
- */
-async function capturarFoto() {
-  const video = document.getElementById("video");
-  const canvas = document.getElementById("canvas");
-  if (!video || !canvas) return null;
-  const context = canvas.getContext("2d");
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    video.srcObject = stream;
-    await new Promise((res) => setTimeout(res, 1000)); // Tiempo para enfoque
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    stream.getTracks().forEach((track) => track.stop());
-    return canvas.toDataURL("image/jpeg", 0.1);
-  } catch (err) {
-    console.error("Error cámara:", err);
-    return null;
-  }
-}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") enviarMensaje();
+});
