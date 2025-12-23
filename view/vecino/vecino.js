@@ -70,7 +70,7 @@ function iniciarIntercomunicador() {
   }
 }
 
-// Nueva función para insertar la imagen en el historial
+// insertar la imagen en el historial
 function mostrarFotoVisitante(base64Data) {
   console.log("Imagen recibida:", base64Data.substring(0, 50) + "..."); // Esto debe salir en la consola
   const container = document.getElementById("messages");
@@ -114,6 +114,9 @@ function enviarMensajeProcesado(texto) {
 }
 
 function agregarMensaje(texto, tipo) {
+  const miAudio = new Audio("./call.mp3");
+  miAudio.play();
+
   const div = document.createElement("div");
   div.className = `msg ${tipo}`;
   div.innerText = texto;
