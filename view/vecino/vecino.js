@@ -58,6 +58,8 @@ function iniciarIntercomunicador() {
           if (datos.foto) {
             mostrarFotoVisitante(datos.foto);
           }
+          const miAudio = new Audio("./call.mp3");
+          miAudio.play();
         }
       },
       () => {
@@ -114,9 +116,6 @@ function enviarMensajeProcesado(texto) {
 }
 
 function agregarMensaje(texto, tipo) {
-  const miAudio = new Audio("./call.mp3");
-  miAudio.play();
-
   const div = document.createElement("div");
   div.className = `msg ${tipo}`;
   div.innerText = texto;
