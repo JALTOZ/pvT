@@ -29,6 +29,9 @@ async function onScanSuccess(decodedText, decodedResult) {
   clearTimeout(temporizadorRecordatorioQR);
   window.speechSynthesis.cancel();
 
+  // Capturar foto ANTES de detener la cámara
+  const fotoQR = capturarSnapshotQR();
+
   // Detener escaneo al éxito
   detenerCamara();
   console.log(`QR Detectado: ${decodedText}`);
@@ -56,9 +59,9 @@ async function onScanSuccess(decodedText, decodedResult) {
           detalle: `Invitado ${qrData.nombre_visitante}`
         });
 
-        // 2. Notificar al dueño (Mensaje Personalizado)
+        // 2. Notificar al dueño (Mensaje Personalizado) + FOTO
         const msgVecino = `${residenteAutoriza.nombre}, su código QR para ${qrData.nombre_visitante} fue usado, está en camino a su departamento.`;
-        notificarVecino(residenteAutoriza, qrData.nombre_visitante + " (QR)", null, msgVecino);
+        notificarVecino(residenteAutoriza, qrData.nombre_visitante + " (QR)", fotoQR, msgVecino);
 
         // 3. Bienvenida Verbal
         await agregarMensaje(`Acceso permitido. Bienvenido, ${qrData.nombre_visitante}.`, "bot", true);
