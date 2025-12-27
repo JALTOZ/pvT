@@ -235,7 +235,7 @@ async function agregarMensaje(texto, tipo, esCierreFinal = false) {
     }
 
     if (esCierreFinal || visitaConcluida) {
-      setTimeout(() => finalizarLlamada(), 3500);
+      setTimeout(() => finalizarLlamada(), 1000); // Cierra rápido tras saludar
     }
   }
 }
