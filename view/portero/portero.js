@@ -541,6 +541,24 @@ function reiniciarDatosInternos() {
 
   // (Bloque duplicado eliminado)
 
+  function capturarSnapshotQR() {
+    try {
+      // Html5Qrcode injects a video element
+      const video = document.querySelector("#qr-reader-embedded video");
+      if (video) {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL("image/jpeg", 0.5);
+      }
+    } catch (e) {
+      console.error("Error capturando foto QR", e);
+    }
+    return null;
+  }
+
   // Funciones globales (window) si es necesario para onclicks HTML
   window.iniciarServicio = iniciarServicio;
   window.finalizarLlamada = reiniciarSesion;
@@ -551,3 +569,4 @@ function reiniciarDatosInternos() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Enter") enviarMensaje();
   });
+};
