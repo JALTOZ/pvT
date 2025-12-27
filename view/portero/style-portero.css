@@ -87,19 +87,22 @@ body {
   background: var(--primary);
   color: #000;
   border: none;
-  padding: 18px 50px;
-  font-weight: 700;
-  font-size: 1.2rem;
+  padding: 16px;
+  width: 100%;
+  /* Match Vecino width */
   border-radius: 4px;
   /* Squared */
+  font-weight: 700;
+  font-size: 1rem;
   cursor: pointer;
-  box-shadow: 0 0 15px rgba(0, 204, 0, 0.4);
-  transition: transform 0.2s, box-shadow 0.2s;
+  letter-spacing: 0.5px;
+  transition: transform 0.2s;
+  box-shadow: 0 5px 15px rgba(0, 136, 0, 0.3);
 }
 
 .btn-call:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 25px rgba(0, 136, 0, 0.4);
+  box-shadow: 0 8px 20px rgba(0, 136, 0, 0.4);
 }
 
 header {

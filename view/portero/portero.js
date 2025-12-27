@@ -165,6 +165,21 @@ async function reiniciarSesion() {
   }, 4000);
 }
 
+// Nueva función real para Finalizar y volver a inicio
+function finalizarLlamada() {
+  console.log("--- Finalizando Llamada (Reset Total) ---");
+  reiniciarDatosInternos();
+  detenerCamara();
+
+  const welcome = document.getElementById("welcome-screen");
+  if (welcome) welcome.style.display = "flex"; // Volver a mostrar pantalla inicio
+
+  const status = document.getElementById("connection-status");
+  if (status) status.innerText = "Esperando llamada";
+
+  window.speechSynthesis.cancel();
+}
+
 function reiniciarDatosInternos() {
   visitanteNombre = "";
   vecinoSeleccionado = null;
@@ -216,7 +231,7 @@ async function agregarMensaje(texto, tipo, esCierreFinal = false) {
     }
 
     if (esCierreFinal || visitaConcluida) {
-      setTimeout(() => reiniciarSesion(), 2500);
+      setTimeout(() => finalizarLlamada(), 3500);
     }
   }
 }
@@ -582,7 +597,7 @@ function capturarSnapshotQR() {
 
 // Funciones globales (window) si es necesario para onclicks HTML
 window.iniciarServicio = iniciarServicio;
-window.finalizarLlamada = reiniciarSesion;
+window.finalizarLlamada = finalizarLlamada;
 window.enviarMensaje = enviarMensaje;
 window.iniciarEscaneoQR = iniciarEscaneoQR;
 window.detenerCamara = detenerCamara;
