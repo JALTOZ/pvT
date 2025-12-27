@@ -1,79 +1,76 @@
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JALTOZ - Portería Inteligente</title>
-    <link rel="icon" type="image/svg+xml" href="../../JALTOZ.svg" />
 
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
-    />
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-    <link rel="stylesheet" href="style-portero.css" />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JALTOZ - Portería Inteligente</title>
+  <link rel="icon" type="image/svg+xml" href="../../JALTOZ.svg" />
 
-    <script src="../../mqtt.js" defer></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <link rel="stylesheet" href="style-portero.css" />
 
-    <script src="perifericos.js"></script>
-    <script src="portero.js"></script>
-  </head>
-  <body>
-    <div id="main-wrapper">
-      <div id="welcome-screen">
-        <img src="../../JALTOZ.svg" class="logo-main" alt="Jaltoz Logo" />
-        <h1>Portería.</h1>
-        <p>Condominio Nuevo Amanecer</p>
-        <button class="btn-call" onclick="iniciarServicio()">Llamar</button>
-      </div>
+  <script src="../../config.js"></script>
+  <script src="../../mqtt.js" defer></script>
 
-      <header>
-        <div class="header-info">
-          <img
-            src="../../JALTOZ.svg"
-            alt="Logo"
-            style="filter: brightness(100)"
-          />
-          <div>
-            <div class="title">Conserje</div>
-            <div id="connection-status" class="status">Esperando llamada</div>
-          </div>
-        </div>
-        <button class="btn-finish" onclick="finalizarLlamada()">
-          Finalizar
-        </button>
-      </header>
+  <script src="datos.js"></script>
+  <script src="perifericos.js"></script>
+  <script src="portero.js"></script>
+</head>
 
-      <div id="messages"></div>
-
-      <div id="input-area" class="disabled">
-        <div id="mic-container">
-          <div class="pulse-ring"></div>
-          <i class="fas fa-microphone" id="mic-icon"></i>
-        </div>
-
-        <input
-          type="text"
-          id="userInput"
-          placeholder="Conectando..."
-          disabled
-        />
-
-        <button id="btn-send" onclick="enviarMensaje()">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="white">
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
-          </svg>
-        </button>
-      </div>
+<body>
+  <div id="main-wrapper">
+    <div id="welcome-screen">
+      <img src="../../JALTOZ.svg" class="logo-main" alt="Jaltoz Logo" />
+      <h1>Portería.</h1>
+      <p>Condominio Nuevo Amanecer</p>
+      <button class="btn-call" onclick="iniciarServicio()">Llamar</button>
     </div>
 
-    <video
-      id="video"
-      width="640"
-      height="480"
-      autoplay
-      style="display: none"
-    ></video>
-    <canvas id="canvas" width="640" height="480" style="display: none"></canvas>
-  </body>
+    <header>
+      <div class="header-info">
+        <img src="../../JALTOZ.svg" alt="Logo" style="filter: brightness(100)" />
+        <div>
+          <div class="title">Conserje</div>
+          <div id="connection-status" class="status">Esperando llamada</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <!-- Botón de finalizar siempre visible -->
+        <button class="btn-finish" onclick="finalizarLlamada()">
+          <i class="fas fa-phone-slash"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Contenedor de cámara integrado en el flujo -->
+    <div id="camera-section" style="padding: 10px; display: none; background: #000;">
+      <div id="qr-reader-embedded"></div>
+      <p style="text-align: center; font-size: 0.8rem; color: #888; margin: 5px 0;">Cámara activa buscando QR...</p>
+    </div>
+
+    <div id="messages"></div>
+
+    <div id="input-area" class="disabled">
+      <div id="mic-container">
+        <div class="pulse-ring"></div>
+        <i class="fas fa-microphone" id="mic-icon"></i>
+      </div>
+
+      <input type="text" id="userInput" placeholder="Conectando..." disabled />
+
+      <button id="btn-send" onclick="enviarMensaje()">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="white">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <video id="video" width="640" height="480" autoplay style="display: none"></video>
+  <canvas id="canvas" width="640" height="480" style="display: none"></canvas>
+</body>
+
 </html>

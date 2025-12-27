@@ -1,6 +1,9 @@
-const GOOGLE_SHEET_URL =
-  "https://script.google.com/macros/s/AKfycbzfaLav5GdU9mCCOVBKwlsD9zcRoddII_P3UbCYYdeTQht2DmJTXHa7JCOko-CcA8OR/exec";
+// vecino.js - Interfaz RESIDENTE JALTOZ
+// Depende de: config.js, mqtt.js, qrcode.js
+
+const GOOGLE_SHEET_URL = CONFIG.GOOGLE_SHEET_URL;
 let MI_DATA = null;
+let currentSubscriptionTopic = null;
 
 async function verificarResidente() {
   const inputOriginal = document.getElementById("residentName").value.trim();
@@ -28,6 +31,7 @@ async function verificarResidente() {
       errorEl.innerText = "No encontrado. Intente con Nombre y Apellido.";
     }
   } catch (e) {
+    console.error(e);
     errorEl.innerText = "Error al conectar con el registro.";
   }
 }
@@ -40,41 +44,41 @@ function iniciarIntercomunicador() {
   if (displayEl)
     displayEl.innerText = `${MI_DATA.nombre} ${MI_DATA.apellido} - Depto ${miApto}`;
 
-  if (typeof conectarMQTT === "function") {
-    conectarMQTT(
-      (topic, payload) => {
-        let datos;
-        try {
-          datos = typeof payload === "string" ? JSON.parse(payload) : payload;
-        } catch (e) {
-          datos = { mensaje: payload };
+  // Usamos MQTTService
+  MQTTService.connect(
+    "vecino_" + miApto,
+    () => { // On Connect
+      statusEl.innerText = "● En línea";
+      document.getElementById("input-area").classList.remove("disabled");
+      document.getElementById("userInput").disabled = false;
+
+      currentSubscriptionTopic = MQTTService.suscribirApto(miApto);
+    },
+    (topic, payload) => { // On Message
+      // Verificar si es para mí
+      if (topic === currentSubscriptionTopic) {
+        let datos = payload;
+        if (typeof payload === "string") {
+          try { datos = JSON.parse(payload); } catch (e) { datos = { mensaje: payload }; }
         }
 
-        if (topic === `/pvT/vecino/${miApto}`) {
-          // 1. Mostrar texto del portero
-          agregarMensaje(`Portería: ${datos.mensaje}`, "portero");
+        // 1. Mostrar texto del portero
+        agregarMensaje(`Portería: ${datos.mensaje}`, "portero");
 
-          // 2. Si viene una foto, mostrarla en el chat
-          if (datos.foto) {
-            mostrarFotoVisitante(datos.foto);
-          }
-          const miAudio = new Audio("./call.mp3");
-          miAudio.play();
+        // 2. Si viene una foto, mostrarla
+        if (datos.foto) {
+          mostrarFotoVisitante(datos.foto);
         }
-      },
-      () => {
-        statusEl.innerText = "● En línea";
-        document.getElementById("input-area").classList.remove("disabled");
-        document.getElementById("userInput").disabled = false;
-        if (mqttClient) mqttClient.subscribe(`/pvT/vecino/${miApto}`);
+
+        const miAudio = new Audio("./call.mp3");
+        miAudio.play().catch(e => console.log("Audio play error", e));
       }
-    );
-  }
+    }
+  );
 }
 
 // insertar la imagen en el historial
 function mostrarFotoVisitante(base64Data) {
-  console.log("Imagen recibida:", base64Data.substring(0, 50) + "..."); // Esto debe salir en la consola
   const container = document.getElementById("messages");
   if (!container) return;
 
@@ -94,8 +98,8 @@ function mostrarFotoVisitante(base64Data) {
 }
 
 function abrirPuertaRapido() {
-  // Envía un "Sí" automático al portero para activar la apertura
-  enviarMensajeProcesado("Sí, puede pasar. Abriendo puerta.");
+  // Envía un "Sí" implícito
+  enviarMensajeProcesado("SI, abrir puerta.");
 }
 
 function enviarAlPortero() {
@@ -105,13 +109,14 @@ function enviarAlPortero() {
 }
 
 function enviarMensajeProcesado(texto) {
-  if (!texto || !mqttClient) return;
+  if (!texto) return;
   const datos = {
     de: MI_DATA.apartamento,
     nombre: MI_DATA.nombre,
     mensaje: texto,
   };
-  mqttClient.publish("/pvT/portero", JSON.stringify(datos));
+
+  MQTTService.publish(CONFIG.MQTT_TOPICS.PORTERO, datos);
   agregarMensaje(texto, "yo");
 }
 
@@ -120,6 +125,126 @@ function agregarMensaje(texto, tipo) {
   div.className = `msg ${tipo}`;
   div.innerText = texto;
   const container = document.getElementById("messages");
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
+  if (container) {
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }
 }
+
+// --- GENERACIÓN QR ---
+function mostrarFormularioInvitado() {
+  document.getElementById("guest-form-container").style.display = "flex";
+  document.getElementById("guestNameInput").value = "";
+  document.getElementById("guestNameInput").focus();
+}
+
+function cerrarFormularioInvitado() {
+  document.getElementById("guest-form-container").style.display = "none";
+}
+
+function generarQRInvitado() {
+  const nombreVisitante = document.getElementById("guestNameInput").value.trim();
+  if (!nombreVisitante) return;
+
+  cerrarFormularioInvitado();
+
+  // Generar QR de Invitado
+  generarQRGenerico({
+    tipo: "INVITADO",
+    nombre_visitante: nombreVisitante,
+    autoriza_nombre: `${MI_DATA.nombre} ${MI_DATA.apellido}`,
+    apartamento: MI_DATA.apartamento,
+    timestamp: Date.now()
+  }, `Invitación: ${nombreVisitante}`);
+}
+
+function mostrarMiQR() {
+  if (!MI_DATA) return;
+  generarQRGenerico({
+    tipo: "RESIDENTE",
+    nombre: MI_DATA.nombre,
+    apellido: MI_DATA.apellido,
+    nombre_completo: `${MI_DATA.nombre} ${MI_DATA.apellido}`,
+    apartamento: MI_DATA.apartamento,
+    timestamp: Date.now()
+  }, "Mi Pase de Residente");
+}
+
+function generarQRGenerico(payload, titulo) {
+  document.getElementById("qr-display-container").style.display = "flex";
+  const container = document.getElementById("qrcode");
+  const titleEl = document.getElementById("qr-title");
+  const infoEl = document.getElementById("qr-info");
+
+  container.innerHTML = "";
+  if (titleEl) titleEl.innerText = titulo;
+
+  const fechaStr = new Date().toLocaleString("es-ES");
+  const payloadStr = JSON.stringify({ ...payload, fecha_creacion: fechaStr });
+
+  // Mostrar info textual
+  if (infoEl) {
+    if (payload.tipo === "INVITADO") {
+      infoEl.innerHTML = `<p>Visita: <strong>${payload.nombre_visitante}</strong></p><p>Autoriza: Apto ${payload.apartamento}</p><p>${fechaStr}</p>`;
+    } else {
+      infoEl.innerHTML = `<p><strong>${payload.nombre_completo}</strong></p><p>Apto ${payload.apartamento}</p><p>${fechaStr}</p>`;
+    }
+  }
+
+  new QRCode(container, {
+    text: payloadStr,
+    width: 200,
+    height: 200,
+    correctLevel: QRCode.CorrectLevel.H
+  });
+}
+
+function cerrarMiQR() {
+  document.getElementById("qr-display-container").style.display = "none";
+}
+
+async function compartirQR() {
+  const container = document.getElementById("qrcode");
+  const imgData = container.querySelector("img")?.src || container.querySelector("canvas")?.toDataURL();
+
+  if (!imgData) {
+    alert("No se ha generado el QR aún.");
+    return;
+  }
+
+  try {
+    // Convertir Base64 a Blob
+    const blob = await (await fetch(imgData)).blob();
+    const file = new File([blob], "pase_acceso_jaltoz.png", { type: "image/png" });
+
+    if (navigator.share && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        title: 'Pase de Acceso JALTOZ',
+        text: `Aquí tienes un pase de acceso para el apartamento ${MI_DATA.apartamento}.`,
+        files: [file]
+      });
+    } else {
+      // Fallback para desktop o navegadores sin soporte de share files
+      // Intentar abrir whatsapp web con texto (no soporta imagen directa por URL scheme)
+      alert("Tu navegador no soporta compartir imágenes directamente. Se descargará el código.");
+      const link = document.createElement("a");
+      link.href = imgData;
+      link.download = "pase_jaltoz.png";
+      link.click();
+    }
+  } catch (error) {
+    console.error("Error compartiendo:", error);
+    alert("Error al intentar compartir.");
+  }
+}
+
+// Exponer funciones globales
+window.verificarResidente = verificarResidente;
+window.abrirPuertaRapido = abrirPuertaRapido;
+window.enviarAlPortero = enviarAlPortero;
+window.mostrarMiQR = mostrarMiQR;
+window.cerrarMiQR = cerrarMiQR;
+window.compartirQR = compartirQR;
+window.mostrarFormularioInvitado = mostrarFormularioInvitado;
+window.cerrarFormularioInvitado = cerrarFormularioInvitado;
+window.generarQRInvitado = generarQRInvitado;
