@@ -56,8 +56,9 @@ async function onScanSuccess(decodedText, decodedResult) {
           detalle: `Invitado ${qrData.nombre_visitante}`
         });
 
-        // 2. Notificar al dueño
-        notificarVecino(residenteAutoriza, qrData.nombre_visitante + " (QR)", null);
+        // 2. Notificar al dueño (Mensaje Personalizado)
+        const msgVecino = `${residenteAutoriza.nombre}, su código QR para ${qrData.nombre_visitante} fue usado, está en camino a su departamento.`;
+        notificarVecino(residenteAutoriza, qrData.nombre_visitante + " (QR)", null, msgVecino);
 
         // 3. Bienvenida Verbal
         await agregarMensaje(`Acceso permitido. Bienvenido, ${qrData.nombre_visitante}.`, "bot", true);
@@ -455,14 +456,15 @@ function reiniciarDatosInternos() {
   }
 
   // Actualizado para usar MQTTService
-  function notificarVecino(vecino, nombreVisita, foto) {
+  function notificarVecino(vecino, nombreVisita, foto, mensajePersonalizado = null) {
     const apto = String(vecino.apartamento).trim();
     const canal = `/pvT/vecino/${apto}`;
+    const msgFinal = mensajePersonalizado || `En la puerta se encuentra ${nombreVisita} busca a ${vecino.nombre}.`;
 
     MQTTService.publish(canal, {
       de: "Portería",
       visitante: nombreVisita,
-      mensaje: `En la puerta se encuentra ${nombreVisita} busca a ${vecino.nombre}.`,
+      mensaje: msgFinal,
       foto: foto,
     });
   }
@@ -537,144 +539,7 @@ function reiniciarDatosInternos() {
     }
   }
 
-  async function onScanSuccess(decodedText, decodedResult) {
-    // Detener escaneo al éxito
-    detenerCamara();
-    console.log(`QR Detectado: ${decodedText}`);
-
-    try {
-      const qrData = JSON.parse(decodedText);
-
-      await agregarMensaje("QR detectado, verificando acceso...", "bot");
-
-      // Cúal es el tipo de pase?
-      if (qrData.tipo === "INVITADO") {
-        // Verificar si el apartamento que autoriza existe en DB
-        // qrData = { tipo, nombre_visitante, autoriza_nombre, apartamento ... }
-        const aptoAutoriza = qrData.apartamento;
-        const residenteAutoriza = vecinosCache.find(v => v.apartamento == aptoAutoriza);
-
-        if (residenteAutoriza) {
-          vecinoSeleccionado = residenteAutoriza;
-          // Notificar Apertura
-          MQTTService.publish(CONFIG.MQTT_TOPICS.PUERTA, {
-            accion: "ABRIR",
-            apto: aptoAutoriza,
-            autorizado_por: "QR_INVITADO",
-            detalle: `Invitado ${qrData.nombre_visitante}`
-          });
-          // Notificar al dueño de casa
-          notificarVecino(residenteAutoriza, qrData.nombre_visitante + " (QR)", null);
-
-          // Mensaje hablado específico
-          await agregarMensaje(`Acceso permitido. Bienvenido, ${qrData.nombre_visitante}.`, "bot", true);
-        } else {
-          await agregarMensaje("El pase de invitado no corresponde a un apartamento válido.", "bot");
-        }
-
-      } else {
-        // ASUMIMOS PASE DE RESIDENTE
-        // Validar existencia real en base de datos
-        const vecinoValido = vecinosCache.find(v =>
-          v.apartamento == qrData.apartamento &&
-          (v.nombre.includes(qrData.nombre) || qrData.nombre_completo.includes(v.nombre))
-        );
-
-        if (vecinoValido) {
-          vecinoSeleccionado = vecinoValido;
-          MQTTService.publish(CONFIG.MQTT_TOPICS.PUERTA, {
-            accion: "ABRIR",
-            apto: vecinoSeleccionado.apartamento,
-            autorizado_por: "QR_VECINO"
-          });
-          await agregarMensaje(`Acceso autorizado. Hola, ${vecinoValido.nombre}.`, "bot", true);
-        } else {
-          await agregarMensaje("Código QR de residente no reconocido.", "bot");
-        }
-      }
-
-    } catch (e) {
-      console.error(e);
-      await agregarMensaje("El formato del código QR no es válido.", "bot");
-    }
-  }
-
-
-  // 8. ARRANQUE Y REINICIO
-  async function iniciarServicio() {
-    const welcome = document.getElementById("welcome-screen");
-    if (welcome) welcome.style.display = "none";
-
-    reiniciarDatosInternos();
-    if (typeof inicializarPerifericos === "function") inicializarPerifericos();
-
-    // Conexión Centralizada
-    MQTTService.connect(
-      "portero",
-      () => { // On Connect
-        const status = document.getElementById("connection-status");
-        if (status) status.innerText = "● En línea";
-        MQTTService.suscribirPortero();
-      },
-      (topic, payload) => { // On Message
-        if (topic === CONFIG.MQTT_TOPICS.PORTERO) {
-          procesarRespuestaVecino(payload);
-        }
-      }
-    );
-
-    // INICIO AUTOMÁTICO DE CÁMARA
-    iniciarEscaneoQR();
-
-    // Saludo Aleatorio
-    const saludoAleatorio = typeof saludos !== "undefined" && saludos.length > 0
-      ? saludos[Math.floor(Math.random() * saludos.length)]
-      : "¡Bienvenido! ¿A quién busca?";
-
-    await agregarMensaje(saludoAleatorio, "bot");
-
-    // Recordatorio QR cortés después de 1 segundo
-    setTimeout(() => {
-      agregarMensaje("Si dispone de una invitación o código QR, por favor muéstrelo a la cámara.", "bot");
-    }, 1000);
-
-    try {
-      const res = await fetch(GOOGLE_SHEET_URL);
-      vecinosCache = await res.json();
-    } catch (e) {
-      console.error("Error base de datos", e);
-    }
-  }
-
-  function reiniciarDatosInternos() {
-    visitanteNombre = "";
-    vecinoSeleccionado = null;
-    visitaConcluida = false;
-    intentosSinNombre = 0;
-    intentosSilencio = 0;
-    intentosNotificacion = 0;
-    clearTimeout(temporizadorInactividad);
-    clearTimeout(temporizadorRespuestaVecino);
-    chatHistory = [];
-    document.getElementById("messages").innerHTML = "";
-    window.speechSynthesis.cancel();
-
-    // Detener cámara al reiniciar
-    detenerCamara();
-
-    if (typeof reconocimiento !== "undefined" && reconocimiento) {
-      try {
-        reconocimiento.stop();
-      } catch (e) { }
-    }
-  }
-
-  function reiniciarSesion() {
-    reiniciarDatosInternos();
-    const welcome = document.getElementById("welcome-screen");
-    if (welcome) welcome.style.display = "flex";
-    setInputEstado(true, "Esperando llamada...");
-  }
+  // (Bloque duplicado eliminado)
 
   // Funciones globales (window) si es necesario para onclicks HTML
   window.iniciarServicio = iniciarServicio;
