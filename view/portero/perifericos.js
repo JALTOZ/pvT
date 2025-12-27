@@ -28,6 +28,9 @@ function inicializarPerifericos() {
 
 function leerTexto(texto, esCierre = false) {
   return new Promise((resolve) => {
+    // Detener reconocimiento antes de hablar para evitar eco/feedback
+    if (reconocimiento) reconocimiento.abort();
+
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(texto);
     u.rate = 1.1;
@@ -39,10 +42,18 @@ function leerTexto(texto, esCierre = false) {
         setInputEstado(false, "Escriba aquí...");
         try {
           if (reconocimiento) reconocimiento.start();
-        } catch (e) {}
+        } catch (e) {
+          console.log("Error reiniciando reconocimiento:", e);
+        }
       }
       resolve();
     };
+
+    u.onerror = (e) => {
+      console.error("Error TTS", e);
+      resolve(); // Resolver promesa aun si falla audio para no bloquear flujo
+    };
+
     window.speechSynthesis.speak(u);
   });
 }

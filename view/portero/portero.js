@@ -38,7 +38,29 @@ async function onScanSuccess(decodedText, decodedResult) {
   const fotoVisitante = typeof capturarFoto === "function" ? await capturarFoto() : null;
 
   try {
-    const qrData = JSON.parse(decodedText);
+    let qrData = {};
+
+    // Detección de formato: JSON vs Compacto (|)
+    if (decodedText.trim().startsWith("{")) {
+      qrData = JSON.parse(decodedText);
+    } else if (decodedText.includes("|")) {
+      // FORMATO NUEVO: TIPO|APTO|NOMBRE
+      const parts = decodedText.split("|");
+      const tipoLetra = parts[0]; // I o R
+
+      qrData.apartamento = parts[1];
+
+      if (tipoLetra === "I") {
+        qrData.tipo = "INVITADO";
+        qrData.nombre_visitante = parts[2];
+      } else if (tipoLetra === "R") {
+        qrData.tipo = "RESIDENTE";
+        qrData.nombre_completo = parts[2];
+        qrData.nombre = parts[2]; // Compatibilidad
+      }
+    } else {
+      throw new Error("Formato desconocidos");
+    }
 
     // No decimos nada aun para no retrasar, validamos rápido
     // await agregarMensaje("QR detectado...", "bot"); // Omitir para velocidad
@@ -604,7 +626,8 @@ window.iniciarServicio = iniciarServicio;
 window.finalizarLlamada = finalizarLlamada;
 window.enviarMensaje = enviarMensaje;
 window.iniciarEscaneoQR = iniciarEscaneoQR;
-window.detenerCamara = detenerCamara;
+
+
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Enter") enviarMensaje();

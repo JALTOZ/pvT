@@ -179,23 +179,30 @@ function generarQRGenerico(payload, titulo) {
   container.innerHTML = "";
   if (titleEl) titleEl.innerText = titulo;
 
-  const fechaStr = new Date().toLocaleString("es-ES");
-  const payloadStr = JSON.stringify({ ...payload, fecha_creacion: fechaStr });
+  // const fechaStr = new Date().toLocaleString("es-ES");
+  // const payloadStr = JSON.stringify({ ...payload, fecha_creacion: fechaStr });
 
-  // Mostrar info textual
-  if (infoEl) {
-    if (payload.tipo === "INVITADO") {
-      infoEl.innerHTML = `<p>Visita: <strong>${payload.nombre_visitante}</strong></p><p>Autoriza: Apto ${payload.apartamento}</p><p>${fechaStr}</p>`;
-    } else {
-      infoEl.innerHTML = `<p><strong>${payload.nombre_completo}</strong></p><p>Apto ${payload.apartamento}</p><p>${fechaStr}</p>`;
-    }
+  // NUEVO FORMATO COMPACTO: TIPO|APTO|NOMBRE
+  let qrText = "";
+  const fechaStr = new Date().toLocaleString("es-ES");
+
+  if (payload.tipo === "INVITADO") {
+    // I|202|JUAN PEREZ
+    qrText = `I|${payload.apartamento}|${payload.nombre_visitante}`;
+    if (infoEl) infoEl.innerHTML = `<p>Visita: <strong>${payload.nombre_visitante}</strong></p><p>Autoriza: Apto ${payload.apartamento}</p><p>${fechaStr}</p>`;
+  } else {
+    // R|202|PEDRO VECINO
+    qrText = `R|${payload.apartamento}|${payload.nombre_completo}`;
+    if (infoEl) infoEl.innerHTML = `<p><strong>${payload.nombre_completo}</strong></p><p>Apto ${payload.apartamento}</p><p>${fechaStr}</p>`;
   }
 
   new QRCode(container, {
-    text: payloadStr,
+    text: qrText,
     width: 200,
     height: 200,
-    correctLevel: QRCode.CorrectLevel.H
+
+    correctLevel: QRCode.CorrectLevel.L
+
   });
 }
 
@@ -251,7 +258,7 @@ async function compartirQR() {
     ctx.font = "16px Arial";
     ctx.fillStyle = "#000000";
     ctx.textAlign = "center";
-    ctx.fillText("JALTOZ ACCESS", canvas.width / 2, canvas.height - 15);
+    ctx.fillText("JALTOZ ACCESO", canvas.width / 2, canvas.height - 15);
 
     // Convertir a Blob
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));

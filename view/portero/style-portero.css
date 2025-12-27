@@ -79,8 +79,69 @@ body {
 
 #welcome-screen p {
   color: var(--text-dim);
-  margin-bottom: 40px;
+  margin-bottom: 20px;
   font-size: 1.1rem;
+}
+
+.clock-display {
+  background-color: #ffffff44;
+  font-size: 3.5rem;
+
+  color: rgb(30, 30, 30);
+
+  width: 60%;
+
+
+  position: absolute;
+  right: 0;
+  top: 5%;
+  font-weight: bold;
+}
+
+#horas,
+#minutos {
+
+
+  font-size: 3rem;
+  display: inline-block;
+  min-width: 60px;
+  text-align: center;
+  /* Efecto hoyo */
+  /* Un poco más gordito para que se vea mejor el "hueco" */
+}
+
+#puntos {
+  font-size: .5rem;
+  animation: blink 1s infinite;
+  display: inline-block;
+  margin: 0px;
+}
+
+@keyframes blink {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
+}
+
+#segundos {
+  font-size: 1.2rem;
+  /* color: var(--text-dim); */
+  display: inline-block;
+  min-width: 30px;
+  text-align: left;
+}
+
+#ampm {
+  font-size: .8rem;
+  color: var(--primary);
+  margin-left: 5px;
+  font-weight: bold;
 }
 
 .btn-call {
