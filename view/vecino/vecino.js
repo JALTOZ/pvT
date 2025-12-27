@@ -205,36 +205,73 @@ function cerrarMiQR() {
 
 async function compartirQR() {
   const container = document.getElementById("qrcode");
-  const imgData = container.querySelector("img")?.src || container.querySelector("canvas")?.toDataURL();
+  const sourceImg = container.querySelector("img");
+  const sourceCanvas = container.querySelector("canvas");
 
-  if (!imgData) {
+  if (!sourceImg && !sourceCanvas) {
     alert("No se ha generado el QR aún.");
     return;
   }
 
   try {
-    // Convertir Base64 a Blob
-    const blob = await (await fetch(imgData)).blob();
+    // Preparar canvas composito para añadir borde blanco
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const padding = 40; // Borde blanco
+    const qrSize = 200; // Tamaño base configurado en QRCode lib
+
+    // Dimensiones finales
+    canvas.width = qrSize + (padding * 2);
+    canvas.height = qrSize + (padding * 2);
+
+    // 1. Fondo Blanco
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 2. Dibujar borde externo (opcional, solicitado "borde por fuera")
+    ctx.strokeStyle = "#333333";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+    // 3. Dibujar QR en el centro
+    const imgToDraw = new Image();
+    // Esperar a que cargue si usamos src, o usar el canvas directo
+    await new Promise((resolve) => {
+      if (sourceCanvas) {
+        resolve(sourceCanvas); // Ya es dibujable
+      } else {
+        imgToDraw.onload = () => resolve(imgToDraw);
+        imgToDraw.src = sourceImg.src;
+      }
+    }).then(image => {
+      ctx.drawImage(image, padding, padding, qrSize, qrSize);
+    });
+
+    // 4. Agregar Texto de Pie (Opcional pero útil)
+    ctx.font = "16px Arial";
+    ctx.fillStyle = "#000000";
+    ctx.textAlign = "center";
+    ctx.fillText("JALTOZ ACCESS", canvas.width / 2, canvas.height - 15);
+
+    // Convertir a Blob
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     const file = new File([blob], "pase_acceso_jaltoz.png", { type: "image/png" });
 
     if (navigator.share && navigator.canShare({ files: [file] })) {
       await navigator.share({
         title: 'Pase de Acceso JALTOZ',
-        text: `Aquí tienes un pase de acceso para el apartamento ${MI_DATA.apartamento}.`,
+        text: `Pase de acceso para el apartamento ${MI_DATA ? MI_DATA.apartamento : ''}.`,
         files: [file]
       });
     } else {
-      // Fallback para desktop o navegadores sin soporte de share files
-      // Intentar abrir whatsapp web con texto (no soporta imagen directa por URL scheme)
-      alert("Tu navegador no soporta compartir imágenes directamente. Se descargará el código.");
       const link = document.createElement("a");
-      link.href = imgData;
-      link.download = "pase_jaltoz.png";
+      link.href = URL.createObjectURL(blob);
+      link.download = "pase_jaltoz_borde.png";
       link.click();
     }
   } catch (error) {
     console.error("Error compartiendo:", error);
-    alert("Error al intentar compartir.");
+    alert("Error al procesar la imagen para compartir.");
   }
 }
 

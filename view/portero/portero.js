@@ -427,7 +427,8 @@ async function onScanSuccess(decodedText, decodedResult) {
         // Notificar al dueño de casa
         notificarVecino(residenteAutoriza, qrData.nombre_visitante + " (QR)", null);
 
-        await agregarMensaje(`Bienvenido ${qrData.nombre_visitante}. Acceso autorizado por ${residenteAutoriza.nombre}.`, "bot", true);
+        // Mensaje hablado específico
+        await agregarMensaje(`Acceso permitido. Bienvenido, ${qrData.nombre_visitante}.`, "bot", true);
       } else {
         await agregarMensaje("El pase de invitado no corresponde a un apartamento válido.", "bot");
       }
@@ -447,7 +448,7 @@ async function onScanSuccess(decodedText, decodedResult) {
           apto: vecinoSeleccionado.apartamento,
           autorizado_por: "QR_VECINO"
         });
-        await agregarMensaje(`Bienvenido ${vecinoValido.nombre}. Acceso autorizado por QR.`, "bot", true);
+        await agregarMensaje(`Acceso autorizado. Hola, ${vecinoValido.nombre}.`, "bot", true);
       } else {
         await agregarMensaje("Código QR de residente no reconocido.", "bot");
       }
