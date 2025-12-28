@@ -84,12 +84,12 @@ body {
 }
 
 .clock-display {
-  background-color: #ffffff44;
+  background-color: #ffffff22;
   font-size: 3.5rem;
 
   color: rgb(30, 30, 30);
 
-  width: 60%;
+  min-width: 60%;
 
 
   position: absolute;
@@ -139,7 +139,7 @@ body {
 
 #ampm {
   font-size: .8rem;
-  color: var(--primary);
+  color: var(--primary-dark);
   margin-left: 5px;
   font-weight: bold;
 }
