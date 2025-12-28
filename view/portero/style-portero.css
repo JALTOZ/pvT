@@ -85,7 +85,8 @@ body {
 
 .clock-display {
   background-color: #ffffff22;
-  font-size: 3.5rem;
+
+  padding: 2%;
 
   color: rgb(30, 30, 30);
 
@@ -100,14 +101,11 @@ body {
 
 #horas,
 #minutos {
-
-
-  font-size: 3rem;
+  font-size: 2rem;
   display: inline-block;
   min-width: 60px;
   text-align: center;
-  /* Efecto hoyo */
-  /* Un poco más gordito para que se vea mejor el "hueco" */
+
 }
 
 #puntos {
