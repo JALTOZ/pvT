@@ -201,7 +201,7 @@ function generarQRGenerico(payload, titulo) {
     width: 200,
     height: 200,
 
-    correctLevel: QRCode.CorrectLevel.L
+    correctLevel: QRCode.CorrectLevel.H
 
   });
 }

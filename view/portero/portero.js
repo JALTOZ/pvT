@@ -45,7 +45,7 @@ async function onScanSuccess(decodedText, decodedResult) {
       qrData = JSON.parse(decodedText);
     } else if (decodedText.includes("|")) {
       // FORMATO NUEVO: TIPO|APTO|NOMBRE
-      const parts = decodedText.split("|");
+      const parts = decodedText.split("|").map(p => p.trim());
       const tipoLetra = parts[0]; // I o R
 
       qrData.apartamento = parts[1];
@@ -68,7 +68,7 @@ async function onScanSuccess(decodedText, decodedResult) {
     // Cúal es el tipo de pase?
     if (qrData.tipo === "INVITADO") {
       const aptoAutoriza = qrData.apartamento;
-      const residenteAutoriza = vecinosCache.find(v => v.apartamento == aptoAutoriza);
+      const residenteAutoriza = vecinosCache.find(v => String(v.apartamento).trim() === String(aptoAutoriza).trim());
 
       if (residenteAutoriza) {
         vecinoSeleccionado = residenteAutoriza;
@@ -95,7 +95,7 @@ async function onScanSuccess(decodedText, decodedResult) {
     } else {
       // PASE DE RESIDENTE
       const vecinoValido = vecinosCache.find(v =>
-        v.apartamento == qrData.apartamento &&
+        String(v.apartamento).trim() === String(qrData.apartamento).trim() &&
         (v.nombre.includes(qrData.nombre) || qrData.nombre_completo.includes(v.nombre))
       );
 
